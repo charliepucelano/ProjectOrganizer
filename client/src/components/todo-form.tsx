@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -75,6 +76,10 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   });
 
   const hasExpense = form.watch("hasAssociatedExpense");
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [tempDate, setTempDate] = useState<Date | undefined>(
+    form.getValues("dueDate") ? new Date(form.getValues("dueDate")) : undefined
+  );
 
   return (
     <>
@@ -106,13 +111,13 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             )}
           />
 
-          <div className="flex items-center gap-2">
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Category</FormLabel>
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <div className="flex gap-2">
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -127,10 +132,11 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       ))}
                     </SelectContent>
                   </Select>
-                </FormItem>
-              )}
-            />
-          </div>
+                  <CategoryDialog />
+                </div>
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}
@@ -138,7 +144,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Due Date</FormLabel>
-                <Popover>
+                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -159,13 +165,35 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString())}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
+                    <div className="p-3 border-b">
+                      <Calendar
+                        mode="single"
+                        selected={tempDate}
+                        onSelect={setTempDate}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsDatePickerOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (tempDate) {
+                              field.onChange(tempDate.toISOString());
+                            }
+                            setIsDatePickerOpen(false);
+                          }}
+                        >
+                          OK
+                        </Button>
+                      </div>
+                    </div>
                   </PopoverContent>
                 </Popover>
               </FormItem>
@@ -240,9 +268,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           </div>
         </form>
       </Form>
-      <div className="mt-4">
-        <CategoryDialog />
-      </div>
     </>
   );
 }
