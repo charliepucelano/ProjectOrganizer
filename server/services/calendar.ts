@@ -1,11 +1,17 @@
 import { google } from "googleapis";
 import { Todo } from "@shared/schema";
 
+// Get the host from environment or use the Replit domain
+const host = process.env.REPL_SLUG ? 
+  `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
+  'http://localhost:5000';
+
 // Log OAuth2 client configuration (without exposing secrets)
 console.log(
   "Initializing OAuth2 client with redirect URI:",
-  "http://localhost:5000/api/auth/google/callback",
+  `${host}/api/auth/google/callback`
 );
+
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.error("ERROR: Missing required Google OAuth credentials");
 } else {
@@ -15,7 +21,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  "http://localhost:5000/api/auth/google/callback",
+  `${host}/api/auth/google/callback`
 );
 
 const calendar = google.calendar({ version: "v3", auth: oauth2Client });
