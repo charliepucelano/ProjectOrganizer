@@ -31,7 +31,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
 
-  // Categories come directly as string array from API
+  // Use categories from API or empty array if not loaded yet
   const todoCategories = categories || [];
 
   const form = useForm({
@@ -47,6 +47,18 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
       estimatedAmount: null
     }
   });
+
+  // Keep track of whether a new category was just added
+  const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
+  
+  // Effect to select newly added category when it becomes available
+  useEffect(() => {
+    if (newlyAddedCategory && categories?.includes(newlyAddedCategory)) {
+      form.setValue("category", newlyAddedCategory);
+      form.trigger("category");
+      setNewlyAddedCategory(null);
+    }
+  }, [categories, newlyAddedCategory, form]);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -116,9 +128,11 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     onSuccess: async (response) => {
       try {
         const data = await response.json();
-        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-        // Auto-select the newly created category
-        form.setValue("category", data.name);
+        // Store the newly created category name
+        setNewlyAddedCategory(data.name);
+        // Invalidate the categories query to refresh the list
+        await queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+        // Close dialog and reset input
         setIsAddingCategory(false);
         setCategoryName("");
         toast({
@@ -200,16 +214,16 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
               <div className="flex gap-2">
                 <Select 
                   onValueChange={field.onChange} 
-                  value={field.value} 
+                  value={field.value || "Unassigned"} 
                   defaultValue="Unassigned"
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {(categories || []).map((category) => (
+                    {todoCategories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
