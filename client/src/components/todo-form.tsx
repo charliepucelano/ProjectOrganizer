@@ -322,7 +322,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             name="estimatedAmount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Estimated Amount</FormLabel>
+                <FormLabel>Estimated Amount (€)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"

@@ -89,11 +89,11 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div>Estimated Budget: ${estimatedTotal.toFixed(2)}</div>
-              <div>Paid Expenses: ${paidTotal.toFixed(2)}</div>
+              <div>Estimated Budget: €{estimatedTotal.toFixed(2)}</div>
+              <div>Paid Expenses: €{paidTotal.toFixed(2)}</div>
               <div className="pt-2 border-t">
                 <div className="text-lg font-semibold">
-                  Total Budget: ${(estimatedTotal + paidTotal).toFixed(2)}
+                  Total Budget: €{(estimatedTotal + paidTotal).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function Budget() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                  <div className="font-semibold">€{expense.amount.toFixed(2)}</div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm">Mark as Paid</Button>
@@ -181,7 +181,7 @@ export default function Budget() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                  <div className="font-semibold">€{expense.amount.toFixed(2)}</div>
                   <Button
                     variant="ghost"
                     size="sm"

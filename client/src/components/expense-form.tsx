@@ -71,7 +71,7 @@ export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCa
             name="amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Amount</FormLabel>
+                <FormLabel>Amount (€)</FormLabel> {/* Changed to Euro symbol */}
                 <FormControl>
                   <Input
                     type="number"
