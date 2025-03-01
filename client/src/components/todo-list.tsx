@@ -1,19 +1,23 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Todo, defaultTodoCategories } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Trash2, DollarSign } from "lucide-react";
+import { Trash2, DollarSign, Pencil } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import TodoForm from "./todo-form";
 
 interface TodoListProps {
   todos: Todo[];
 }
 
 export default function TodoList({ todos }: TodoListProps) {
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
       const completed = todo.completed ? 0 : 1;
@@ -68,6 +72,22 @@ export default function TodoList({ todos }: TodoListProps) {
     return acc;
   }, {} as Record<string, Todo[]>);
 
+  if (editingTodo) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Todo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TodoForm 
+            todo={editingTodo} 
+            onCancel={() => setEditingTodo(null)} 
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {defaultTodoCategories.map(category => {
@@ -113,6 +133,13 @@ export default function TodoList({ todos }: TodoListProps) {
                       <Badge variant={todo.priority ? "destructive" : "secondary"}>
                         {todo.priority ? "High" : "Normal"}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingTodo(todo)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
