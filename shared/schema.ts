@@ -2,7 +2,7 @@ import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const todoCategories = [
+export const defaultTodoCategories = [
   "Pre-Move",
   "Packing",
   "Moving Day",
@@ -13,7 +13,7 @@ export const todoCategories = [
   "Repairs"
 ] as const;
 
-export const expenseCategories = [
+export const defaultExpenseCategories = [
   "Purchase",
   "Moving",
   "Repairs",
@@ -24,11 +24,17 @@ export const expenseCategories = [
   "Other"
 ] as const;
 
+export const customCategories = pgTable("custom_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type", { enum: ["todo", "expense"] }).notNull(),
+});
+
 export const todos = pgTable("todos", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  category: text("category", { enum: todoCategories }).notNull(),
+  category: text("category").notNull(),
   completed: integer("completed").notNull().default(0),
   dueDate: timestamp("due_date"),
   priority: integer("priority").notNull().default(0),
@@ -38,14 +44,17 @@ export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   description: text("description").notNull(),
   amount: real("amount").notNull(),
-  category: text("category", { enum: expenseCategories }).notNull(),
+  category: text("category").notNull(),
   date: timestamp("date").notNull(),
 });
 
 export const insertTodoSchema = createInsertSchema(todos).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true });
+export const insertCustomCategorySchema = createInsertSchema(customCategories).omit({ id: true });
 
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type CustomCategory = typeof customCategories.$inferSelect;
+export type InsertCustomCategory = z.infer<typeof insertCustomCategorySchema>;

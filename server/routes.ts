@@ -1,9 +1,30 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTodoSchema, insertExpenseSchema } from "@shared/schema";
+import { insertTodoSchema, insertExpenseSchema, insertCustomCategorySchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
+  // Custom Categories
+  app.get("/api/categories", async (_req, res) => {
+    const categories = await storage.getCustomCategories();
+    res.json(categories);
+  });
+
+  app.post("/api/categories", async (req, res) => {
+    const parsed = insertCustomCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const category = await storage.createCustomCategory(parsed.data);
+    res.json(category);
+  });
+
+  app.delete("/api/categories/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    await storage.deleteCustomCategory(id);
+    res.status(204).end();
+  });
+
   // Todos
   app.get("/api/todos", async (_req, res) => {
     const todos = await storage.getTodos();

@@ -1,4 +1,4 @@
-import { Todo, InsertTodo, Expense, InsertExpense } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, CustomCategory, InsertCustomCategory } from "@shared/schema";
 
 export interface IStorage {
   // Todos
@@ -6,24 +6,33 @@ export interface IStorage {
   createTodo(todo: InsertTodo): Promise<Todo>;
   updateTodo(id: number, todo: Partial<Todo>): Promise<Todo>;
   deleteTodo(id: number): Promise<void>;
-  
+
   // Expenses
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   deleteExpense(id: number): Promise<void>;
+
+  // Categories
+  getCustomCategories(): Promise<CustomCategory[]>;
+  createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
+  deleteCustomCategory(id: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private todos: Map<number, Todo>;
   private expenses: Map<number, Expense>;
+  private categories: Map<number, CustomCategory>;
   private todoId: number;
   private expenseId: number;
+  private categoryId: number;
 
   constructor() {
     this.todos = new Map();
     this.expenses = new Map();
+    this.categories = new Map();
     this.todoId = 1;
     this.expenseId = 1;
+    this.categoryId = 1;
   }
 
   async getTodos(): Promise<Todo[]> {
@@ -40,7 +49,7 @@ export class MemStorage implements IStorage {
   async updateTodo(id: number, update: Partial<Todo>): Promise<Todo> {
     const todo = this.todos.get(id);
     if (!todo) throw new Error("Todo not found");
-    
+
     const updatedTodo = { ...todo, ...update };
     this.todos.set(id, updatedTodo);
     return updatedTodo;
@@ -63,6 +72,21 @@ export class MemStorage implements IStorage {
 
   async deleteExpense(id: number): Promise<void> {
     this.expenses.delete(id);
+  }
+
+  async getCustomCategories(): Promise<CustomCategory[]> {
+    return Array.from(this.categories.values());
+  }
+
+  async createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory> {
+    const id = this.categoryId++;
+    const newCategory = { ...category, id };
+    this.categories.set(id, newCategory);
+    return newCategory;
+  }
+
+  async deleteCustomCategory(id: number): Promise<void> {
+    this.categories.delete(id);
   }
 }
 

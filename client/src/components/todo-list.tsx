@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Todo, todoCategories } from "@shared/schema";
+import { Todo, defaultTodoCategories } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -36,16 +36,16 @@ export default function TodoList({ todos }: TodoListProps) {
     }
   });
 
-  const todosByCategory = todoCategories.reduce((acc, category) => {
+  const todosByCategory = defaultTodoCategories.reduce((acc: Record<string, Todo[]>, category: string) => {
     acc[category] = todos.filter(todo => todo.category === category);
     return acc;
   }, {} as Record<string, Todo[]>);
 
   return (
     <div className="space-y-6">
-      {todoCategories.map(category => {
+      {defaultTodoCategories.map(category => {
         const categoryTodos = todosByCategory[category];
-        if (!categoryTodos.length) return null;
+        if (!categoryTodos?.length) return null;
 
         return (
           <Card key={category}>

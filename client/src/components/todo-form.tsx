@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { insertTodoSchema, todoCategories } from "@shared/schema";
+import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import CategoryDialog from "./category-dialog";
 
 export default function TodoForm() {
   const { toast } = useToast();
+  const { data: customCategories } = useQuery({
+    queryKey: ["/api/categories"]
+  });
+
+  const todoCategories = [
+    ...defaultTodoCategories,
+    ...(customCategories?.filter(c => c.type === "todo").map(c => c.name) || [])
+  ];
+
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
     defaultValues: {
@@ -74,29 +84,34 @@ export default function TodoForm() {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {todoCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormItem>
-          )}
-        />
+        <div className="flex items-center gap-2">
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {todoCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+          <div className="pt-6">
+            <CategoryDialog />
+          </div>
+        </div>
 
         <FormField
           control={form.control}
