@@ -27,7 +27,6 @@ export const defaultExpenseCategories = [
 export const customCategories = pgTable("custom_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type", { enum: ["todo", "expense"] }).notNull(),
 });
 
 export const todos = pgTable("todos", {

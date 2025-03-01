@@ -19,7 +19,7 @@ export default function ExpenseForm() {
 
   const expenseCategories = [
     ...defaultExpenseCategories,
-    ...(customCategories?.filter(c => c.type === "expense").map(c => c.name) || [])
+    ...(customCategories?.map(c => c.name) || [])
   ];
 
   const form = useForm({

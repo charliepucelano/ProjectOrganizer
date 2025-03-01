@@ -26,7 +26,7 @@ export default function TodoForm() {
 
   const todoCategories = [
     ...defaultTodoCategories,
-    ...(customCategories?.filter(c => c.type === "todo").map(c => c.name) || [])
+    ...(customCategories?.map(c => c.name) || [])
   ];
 
   const form = useForm({
