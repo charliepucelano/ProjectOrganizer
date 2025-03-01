@@ -31,6 +31,12 @@ export function getAuthUrl() {
     "https://www.googleapis.com/auth/calendar.events",
   ];
 
+  console.log('OAuth2 client configuration:', {
+    redirectUri: `${host}/api/auth/google/callback`,
+    hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+    hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
+  });
+
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: scopes,
@@ -46,7 +52,7 @@ export async function setCredentials(code: string) {
   try {
     console.log('Setting Google Calendar credentials with auth code');
     console.log('OAuth2 client configuration:', {
-      redirectUri: oauth2Client.redirectUri,
+      redirectUri: `${host}/api/auth/google/callback`,
       hasClientId: !!process.env.GOOGLE_CLIENT_ID,
       hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
     });
