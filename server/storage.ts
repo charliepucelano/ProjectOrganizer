@@ -10,6 +10,7 @@ export interface IStorage {
   // Expenses
   getExpenses(): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, expense: Partial<Expense>): Promise<Expense>;
   deleteExpense(id: number): Promise<void>;
 
   // Categories
@@ -68,6 +69,15 @@ export class MemStorage implements IStorage {
     const newExpense = { ...expense, id };
     this.expenses.set(id, newExpense);
     return newExpense;
+  }
+
+  async updateExpense(id: number, update: Partial<Expense>): Promise<Expense> {
+    const expense = this.expenses.get(id);
+    if (!expense) throw new Error("Expense not found");
+
+    const updatedExpense = { ...expense, ...update };
+    this.expenses.set(id, updatedExpense);
+    return updatedExpense;
   }
 
   async deleteExpense(id: number): Promise<void> {

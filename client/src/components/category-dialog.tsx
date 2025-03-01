@@ -38,9 +38,12 @@ export default function CategoryDialog() {
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) form.reset();
+    }}>
       <DialogTrigger asChild>
-        <Button variant="outline">Add Custom Category</Button>
+        <Button variant="outline" type="button">Add Custom Category</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

@@ -71,6 +71,16 @@ export async function registerRoutes(app: Express) {
     res.json(expense);
   });
 
+  app.patch("/api/expenses/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    try {
+      const expense = await storage.updateExpense(id, req.body);
+      res.json(expense);
+    } catch (e) {
+      res.status(404).json({ error: "Expense not found" });
+    }
+  });
+
   app.delete("/api/expenses/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     await storage.deleteExpense(id);
