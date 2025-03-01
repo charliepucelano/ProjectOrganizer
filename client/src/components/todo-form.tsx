@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -50,7 +50,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
 
   // Keep track of whether a new category was just added
   const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
-  
+
   // Effect to select newly added category when it becomes available
   useEffect(() => {
     if (newlyAddedCategory && categories?.includes(newlyAddedCategory)) {
