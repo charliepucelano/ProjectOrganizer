@@ -207,9 +207,6 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem key="Unassigned" value="Unassigned">
-                      Unassigned
-                    </SelectItem>
                     {(categories || []).map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
