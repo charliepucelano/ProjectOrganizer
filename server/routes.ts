@@ -426,33 +426,34 @@ export async function registerRoutes(app: Express) {
    */
   app.get("/api/auth/google/callback", async (req, res) => {
     try {
-      console.log("Received Google OAuth callback");
+      console.log('Received Google OAuth callback');
       const code = req.query.code as string;
       if (!code) {
-        console.log("No authorization code received from Google");
+        console.log('No authorization code received from Google');
         return res.redirect("/?error=google_auth_cancelled");
       }
 
+      if (!req.user) {
+        console.log('No authenticated user found for Google Calendar callback');
+        return res.redirect("/?error=not_authenticated");
+      }
+
       try {
-        console.log("Attempting to exchange authorization code for tokens");
+        console.log('Attempting to exchange authorization code for tokens');
         const tokens = await setCredentials(code);
 
-        if (req.user) {
-          console.log("Updating user with Google Calendar tokens");
-          await storage.updateUser(req.user.id, {
-            googleAccessToken: tokens.access_token,
-            googleRefreshToken: tokens.refresh_token,
-          });
-          console.log("Successfully updated user with Google Calendar tokens");
-        }
+        console.log('Updating user with Google Calendar tokens');
+        await storage.updateUser(req.user.id, {
+          googleAccessToken: tokens.access_token,
+          googleRefreshToken: tokens.refresh_token,
+        });
+        console.log('Successfully updated user with Google Calendar tokens');
 
         res.redirect("/");
       } catch (error: any) {
         console.error("Google OAuth callback error:", error);
         console.error("Error details:", error.response?.data || error.message);
-        const errorMessage = encodeURIComponent(
-          (error as Error).message || "Failed to connect to Google Calendar",
-        );
+        const errorMessage = encodeURIComponent((error as Error).message || 'Failed to connect to Google Calendar');
         res.redirect(`/?error=${errorMessage}`);
       }
     } catch (error) {
