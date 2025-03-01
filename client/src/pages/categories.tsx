@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { defaultTodoCategories } from "@shared/schema";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +22,8 @@ export default function Categories() {
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { data: categories = [], status } = useQuery({
-    queryKey: ["/api/categories"],
-    queryFn: () => apiRequest("GET", "/api/categories")
+  const { data: categories = [], status } = useQuery<string[]>({
+    queryKey: ["/api/categories"]
   });
 
   const form = useForm({
@@ -63,7 +61,11 @@ export default function Categories() {
 
   const deleteMutation = useMutation({
     mutationFn: async (category: string) => {
-      await apiRequest("DELETE", `/api/categories/${category}`);
+      const response = await apiRequest("DELETE", `/api/categories/${category}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete category");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
@@ -118,10 +120,10 @@ export default function Categories() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {status === "loading" ? (
+            {status === "pending" ? (
               <p>Loading categories...</p>
             ) : (
-              categories.map((category: string) => (
+              categories.map((category) => (
                 <div key={category} className="flex items-center justify-between p-2 border rounded-md">
                   <span>{category}</span>
                   {category !== "Unassigned" && (
@@ -149,7 +151,7 @@ export default function Categories() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!deleteDialog} onOpenChange={setDeleteDialog}>
+      <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category?</AlertDialogTitle>
@@ -159,7 +161,7 @@ export default function Categories() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteDialog(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteDialog && deleteMutation.mutate(deleteDialog)}>
               Delete
             </AlertDialogAction>

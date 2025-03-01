@@ -4,9 +4,10 @@ import { storage } from "./storage";
 import { insertTodoSchema, insertExpenseSchema, defaultTodoCategories } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
-  // Categories
+  // Categories (maintaining as a single set)
   app.get("/api/categories", async (_req, res) => {
-    res.json(defaultTodoCategories);
+    // Send categories array
+    res.json([...defaultTodoCategories]);
   });
 
   app.post("/api/categories", async (req, res) => {
@@ -17,14 +18,16 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ error: "Category name is required" });
     }
 
+    const trimmedName = name.trim();
+
     // Check if category already exists (case insensitive)
-    if (defaultTodoCategories.some(c => c.toLowerCase() === name.toLowerCase())) {
+    if (defaultTodoCategories.some(c => c.toLowerCase() === trimmedName.toLowerCase())) {
       return res.status(400).json({ error: "Category already exists" });
     }
 
     // Add to the set of categories
-    (defaultTodoCategories as string[]).push(name.trim());
-    res.json({ name: name.trim() });
+    (defaultTodoCategories as string[]).push(trimmedName);
+    res.json({ name: trimmedName });
   });
 
   // Todos

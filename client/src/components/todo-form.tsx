@@ -20,12 +20,10 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const [categoryName, setCategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: customCategories = [] } = useQuery({
+  // Get categories
+  const { data: categories = [] } = useQuery<string[]>({
     queryKey: ["/api/categories"]
   });
-
-  const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
-  const uniqueCategories = [...new Set(allCategories)];
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -99,12 +97,20 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      // Auto-select the newly created category
       form.setValue("category", data.name);
       setIsAddingCategory(false);
       setCategoryName("");
       toast({
         title: "Success",
         description: "Category created successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
       });
     }
   });
@@ -163,7 +169,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {uniqueCategories.map((category) => (
+                    {categories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
