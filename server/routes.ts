@@ -387,6 +387,7 @@ export async function registerRoutes(app: Express) {
    *         description: Redirects to Google OAuth consent screen
    */
   app.get("/api/auth/google", requireAuth, (_req, res) => {
+    console.log('Starting Google Calendar OAuth flow');
     const authUrl = getAuthUrl();
     res.redirect(authUrl);
   });
@@ -411,26 +412,36 @@ export async function registerRoutes(app: Express) {
    */
   app.get("/api/auth/google/callback", requireAuth, async (req, res) => {
     try {
+      console.log('Received Google OAuth callback');
       const code = req.query.code as string;
       if (!code) {
         console.log('No authorization code received from Google');
         return res.redirect("/?error=google_auth_cancelled");
       }
 
-      const tokens = await setCredentials(code);
+      try {
+        console.log('Attempting to exchange authorization code for tokens');
+        const tokens = await setCredentials(code);
 
-      if (req.user) {
-        await storage.updateUser(req.user.id, {
-          googleAccessToken: tokens.access_token,
-          googleRefreshToken: tokens.refresh_token,
-        });
+        if (req.user) {
+          console.log('Updating user with Google Calendar tokens');
+          await storage.updateUser(req.user.id, {
+            googleAccessToken: tokens.access_token,
+            googleRefreshToken: tokens.refresh_token,
+          });
+          console.log('Successfully updated user with Google Calendar tokens');
+        }
+
+        res.redirect("/");
+      } catch (error: any) {
+        console.error("Google OAuth callback error:", error);
+        console.error("Error details:", error.response?.data || error.message);
+        const errorMessage = encodeURIComponent((error as Error).message || 'Failed to connect to Google Calendar');
+        res.redirect(`/?error=${errorMessage}`);
       }
-
-      res.redirect("/");
     } catch (error) {
-      console.error("Google OAuth callback error:", error);
-      const errorMessage = encodeURIComponent((error as Error).message || 'Failed to connect to Google Calendar');
-      res.redirect(`/?error=${errorMessage}`);
+      console.error("Error in Google callback route:", error);
+      res.redirect("/?error=google_auth_failed");
     }
   });
 

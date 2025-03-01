@@ -19,7 +19,7 @@ export default function Home() {
   const { toast } = useToast();
   const [location] = useLocation();
 
-  // Handle Google Calendar errors
+  // Update the useEffect hook to handle detailed error messages
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');

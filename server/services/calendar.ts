@@ -7,6 +7,12 @@ const oauth2Client = new google.auth.OAuth2(
   'http://localhost:5000/api/auth/google/callback'
 );
 
+// Log OAuth2 client configuration (without exposing secrets)
+console.log('Initializing OAuth2 client with redirect URI:', 'http://localhost:5000/api/auth/google/callback');
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.error('Missing required Google OAuth credentials');
+}
+
 const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
 export async function createCalendarEvent(todo: Todo) {
@@ -63,11 +69,23 @@ export async function setCredentials(code: string) {
   try {
     console.log('Setting Google Calendar credentials with auth code');
     const { tokens } = await oauth2Client.getToken(code);
+    console.log('Token exchange successful, received tokens:', {
+      access_token: tokens.access_token ? 'present' : 'missing',
+      refresh_token: tokens.refresh_token ? 'present' : 'missing',
+      expiry_date: tokens.expiry_date
+    });
+
     oauth2Client.setCredentials(tokens);
-    console.log('Successfully obtained Google Calendar tokens');
+    console.log('Successfully set credentials in oauth2Client');
     return tokens;
   } catch (error: any) {
     console.error('Error setting credentials:', error);
+    console.error('Error details:', {
+      response: error.response?.data,
+      status: error.response?.status,
+      message: error.message
+    });
+
     if (error.response?.data?.error === 'invalid_grant') {
       throw new Error('Invalid authorization code. Please try connecting again.');
     }
