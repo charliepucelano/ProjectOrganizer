@@ -54,7 +54,7 @@ export default function Categories() {
       setDeleteDialogOpen(false);
       toast({
         title: "Success",
-        description: "Category deleted successfully. All associated items have been moved to 'Unassigned'."
+        description: "Category deleted successfully"
       });
     }
   });
@@ -78,13 +78,6 @@ export default function Categories() {
       deleteMutation.mutate(selectedCategory.id);
     }
   };
-
-  // Combine all categories into a single list
-  const allCategories = [
-    { name: "Unassigned", isDefault: true },
-    ...defaultTodoCategories.filter(c => c !== "Unassigned").map(name => ({ name, isDefault: true })),
-    ...customCategories.map(c => ({ ...c, isDefault: false }))
-  ];
 
   return (
     <div className="space-y-6">
@@ -122,27 +115,9 @@ export default function Categories() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {allCategories.map((category) => (
-              <div key={category.name} className="flex items-center justify-between p-2 border rounded-md">
-                <span>{category.name}</span>
-                {category.name !== "Unassigned" && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditClick(category)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteClick(category)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )}
+            {defaultTodoCategories.map((category) => (
+              <div key={category} className="flex items-center justify-between p-2 border rounded-md">
+                <span>{category}</span>
               </div>
             ))}
           </div>
