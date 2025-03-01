@@ -126,7 +126,15 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
   const onSubmit = async (data: any) => {
     if (isSubmitting) return;
-    await mutation.mutateAsync(data);
+    try {
+      // If there's a due date selected, ensure it's formatted correctly
+      if (data.dueDate && tempDate) {
+        data.dueDate = tempDate.toISOString();
+      }
+      await mutation.mutateAsync(data);
+    } catch (error) {
+      console.error("Form submission error:", error);
+    }
   };
 
   return (
@@ -181,8 +189,8 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                 </Select>
                 <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
                   <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       type="button"
                       size="icon"
                       onClick={(e) => {
@@ -199,14 +207,14 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       <DialogTitle>Create New Category</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleCategorySubmit} className="space-y-4 pt-4">
-                      <Input 
+                      <Input
                         value={categoryName}
                         onChange={(e) => setCategoryName(e.target.value)}
                         placeholder="Category name"
                       />
                       <div className="flex justify-end gap-2">
-                        <Button 
-                          type="button" 
+                        <Button
+                          type="button"
                           variant="outline"
                           onClick={() => {
                             setIsAddingCategory(false);

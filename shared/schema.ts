@@ -64,9 +64,20 @@ const baseTodoSchema = {
   estimatedAmount: z.number().nullable(),
 };
 
-// Use the base schema for both insert and update operations
-export const insertTodoSchema = z.object(baseTodoSchema).omit({ id: true });
-export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true });
+// Create a base expense schema with proper date validation
+const baseExpenseSchema = {
+  description: z.string().min(1, "Description is required"),
+  amount: z.number().min(0, "Amount must be positive"),
+  category: z.string().min(1, "Category is required"),
+  date: z.string().transform(val => new Date(val).toISOString()),
+  todoId: z.number().nullable(),
+  isBudget: z.number().default(0),
+  completedAt: z.string().nullable().transform(val => val ? new Date(val).toISOString() : null),
+};
+
+// Use the base schemas for both insert and update operations
+export const insertTodoSchema = z.object(baseTodoSchema);
+export const insertExpenseSchema = z.object(baseExpenseSchema);
 export const insertCustomCategorySchema = createInsertSchema(customCategories).omit({ id: true });
 
 export type Todo = typeof todos.$inferSelect;
