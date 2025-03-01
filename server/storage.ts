@@ -16,7 +16,9 @@ export interface IStorage {
   // Categories
   getCustomCategories(): Promise<CustomCategory[]>;
   createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
+  updateCustomCategory(id: number, data: InsertCustomCategory): Promise<CustomCategory>;
   deleteCustomCategory(id: number): Promise<void>;
+  updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -34,6 +36,15 @@ export class MemStorage implements IStorage {
     this.todoId = 1;
     this.expenseId = 1;
     this.categoryId = 1;
+
+    // Initialize with predefined categories
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Financial Obligations" });
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Moving" });
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Utilities" });
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Improvements" });
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Furniture" });
+    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Unassigned" });
+
   }
 
   async getTodos(): Promise<Todo[]> {
@@ -110,8 +121,38 @@ export class MemStorage implements IStorage {
     return newCategory;
   }
 
+  async updateCustomCategory(id: number, data: InsertCustomCategory): Promise<CustomCategory> {
+    const category = this.categories.get(id);
+    if (!category) throw new Error("Category not found");
+    const updatedCategory = { ...category, ...data };
+    this.categories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
   async deleteCustomCategory(id: number): Promise<void> {
-    this.categories.delete(id);
+    const categoryToDelete = this.categories.get(id);
+    if (categoryToDelete) {
+        this.categories.delete(id);
+        //reassign todos
+        this.reassignTodos(categoryToDelete.name, "Unassigned");
+    }
+
+  }
+
+    private reassignTodos(oldCategory: string, newCategory: string): void{
+        for (const [key, value] of this.todos) {
+            if(value.category === oldCategory){
+                this.updateTodo(key, {category: newCategory});
+            }
+        }
+    }
+
+  async updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void> {
+    for (const [id, todo] of this.todos) {
+      if (todo.category === oldCategory) {
+        await this.updateTodo(id, { category: newCategory });
+      }
+    }
   }
 }
 

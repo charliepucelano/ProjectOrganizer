@@ -1,7 +1,8 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -9,11 +10,23 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertCustomCategorySchema } from "@shared/schema";
+import { insertCustomCategorySchema, defaultTodoCategories } from "@shared/schema";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import EditCategoryDialog from "./edit-category-dialog";
+import { Pencil, Trash2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
 
 export default function CategoryDialog() {
   const [open, setOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const { toast } = useToast();
+
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ["/api/categories"]
+  });
 
   const form = useForm({
     resolver: zodResolver(insertCustomCategorySchema),
@@ -22,13 +35,12 @@ export default function CategoryDialog() {
     }
   });
 
-  const mutation = useMutation({
+  const createMutation = useMutation({
     mutationFn: async (values: any) => {
       await apiRequest("POST", "/api/categories", values);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      setOpen(false);
       form.reset();
       toast({
         title: "Success",
@@ -37,53 +49,157 @@ export default function CategoryDialog() {
     }
   });
 
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      setOpen(isOpen);
-      if (!isOpen) form.reset();
-    }}>
-      <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          type="button" 
-          size="icon"
-          onClick={(e) => {
-            e.preventDefault(); 
-            e.stopPropagation(); 
-          }}
-        >
-          +
-        </Button>
-      </DialogTrigger>
-      <DialogContent onClick={(e) => e.stopPropagation()}>
-        <DialogHeader>
-          <DialogTitle>Create New Category</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              form.handleSubmit((data) => mutation.mutate(data))(e);
-            }} 
-            className="space-y-4"
-          >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setDeleteDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Category deleted successfully. All associated items have been moved to 'Unassigned'."
+      });
+    }
+  });
 
-            <Button type="submit" className="w-full">Create Category</Button>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+  const onSubmit = (values: any) => {
+    createMutation.mutate(values);
+  };
+
+  const handleEditClick = (category: any) => {
+    setSelectedCategory(category);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (category: any) => {
+    setSelectedCategory(category);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedCategory) {
+      deleteMutation.mutate(selectedCategory.id);
+    }
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">Manage Categories</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Categories</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Add new category form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Add New Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Input placeholder="New category name" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" disabled={createMutation.isPending}>
+                      {createMutation.isPending ? "Adding..." : "Add Category"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+            
+            {/* Default categories */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Categories</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {defaultTodoCategories.map((category) => (
+                    <Badge key={category} variant="secondary">{category}</Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Custom categories with edit/delete */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Custom Categories</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {customCategories.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No custom categories yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {customCategories.map((category: any) => (
+                      <div key={category.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <span>{category.name}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditClick(category)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(category)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {selectedCategory && (
+        <>
+          <EditCategoryDialog 
+            category={selectedCategory} 
+            open={editDialogOpen} 
+            onOpenChange={setEditDialogOpen}
+          />
+          
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will delete the category "{selectedCategory.name}". All items in this category will be moved to "Unassigned".
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+    </>
   );
 }

@@ -2,14 +2,12 @@ import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-
 import { z } from "zod";
 
 export const defaultTodoCategories = [
-  "Pre-Move",
-  "Packing",
-  "Moving Day",
-  "Post-Move",
+  "Financial Obligations",
+  "Moving",
   "Utilities",
-  "Documentation",
-  "Shopping",
-  "Repairs"
+  "Improvements",
+  "Furniture",
+  "Unassigned"
 ] as const;
 
 export const defaultExpenseCategories = [
