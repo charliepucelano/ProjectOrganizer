@@ -274,7 +274,7 @@ export default function TodoList({ todos }: TodoListProps) {
   }
 
   // Query for categories and refresh when needed
-  const { data: categories, refetch: refetchCategories } = useQuery({
+  const { data: categoryList, refetch: refetchCategories } = useQuery({
     queryKey: ["/api/categories"],
     refetchOnWindowFocus: true,
     refetchInterval: 3000 // Refresh every 3 seconds
@@ -282,7 +282,7 @@ export default function TodoList({ todos }: TodoListProps) {
 
   const allCategories = [
     "all",
-    ...(categories || [])
+    ...(categoryList || [])
   ];
 
   return (
