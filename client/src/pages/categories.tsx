@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -13,7 +13,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import EditCategoryDialog from "@/components/edit-category-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function Categories() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -80,88 +79,75 @@ export default function Categories() {
     }
   };
 
+  // Combine all categories into a single list
+  const allCategories = [
+    { name: "Unassigned", isDefault: true },
+    ...defaultTodoCategories.filter(c => c !== "Unassigned").map(name => ({ name, isDefault: true })),
+    ...customCategories.map(c => ({ ...c, isDefault: false }))
+  ];
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Categories</h1>
 
-      <div className="space-y-6">
-        {/* Add new category form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Add New Category</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <Input placeholder="New category name" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Adding..." : "Add Category"}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Category</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl>
+                      <Input placeholder="New category name" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Adding..." : "Add Category"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
 
-        {/* Default categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Default Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {defaultTodoCategories.map((category) => (
-                <Badge key={category} variant="secondary">{category}</Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Custom categories with edit/delete */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Custom Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {customCategories.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No custom categories yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {customCategories.map((category: any) => (
-                  <div key={category.id} className="flex items-center justify-between p-2 border rounded-md">
-                    <span>{category.name}</span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditClick(category)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(category)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Categories</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {allCategories.map((category) => (
+              <div key={category.name} className="flex items-center justify-between p-2 border rounded-md">
+                <span>{category.name}</span>
+                {category.name !== "Unassigned" && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditClick(category)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteClick(category)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedCategory && (
         <>
