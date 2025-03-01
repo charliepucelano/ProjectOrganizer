@@ -52,7 +52,20 @@ export const expenses = pgTable("expenses", {
   completedAt: timestamp("completed_at"),
 });
 
-export const insertTodoSchema = createInsertSchema(todos).omit({ id: true });
+// Create a base todo schema with proper date validation
+const baseTodoSchema = {
+  title: z.string().min(1, "Title is required"),
+  description: z.string().nullable(),
+  category: z.string().min(1, "Category is required"),
+  completed: z.number().default(0),
+  dueDate: z.string().nullable().transform(val => val ? new Date(val).toISOString() : null),
+  priority: z.number().default(0),
+  hasAssociatedExpense: z.number().default(0),
+  estimatedAmount: z.number().nullable(),
+};
+
+// Use the base schema for both insert and update operations
+export const insertTodoSchema = z.object(baseTodoSchema).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true });
 export const insertCustomCategorySchema = createInsertSchema(customCategories).omit({ id: true });
 

@@ -43,14 +43,30 @@ export default function CategoryDialog() {
       if (!isOpen) form.reset();
     }}>
       <DialogTrigger asChild>
-        <Button variant="outline" type="button">Add Custom Category</Button>
+        <Button 
+          variant="outline" 
+          type="button" 
+          size="icon"
+          onClick={(e) => {
+            e.preventDefault(); 
+            e.stopPropagation(); 
+          }}
+        >
+          +
+        </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>Create New Category</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              form.handleSubmit((data) => mutation.mutate(data))(e);
+            }} 
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="name"
