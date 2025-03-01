@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -93,7 +92,7 @@ export default function CategoryDialog() {
           <DialogHeader>
             <DialogTitle>Categories</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             {/* Add new category form */}
             <Card>
@@ -121,21 +120,21 @@ export default function CategoryDialog() {
                 </Form>
               </CardContent>
             </Card>
-            
-            {/* All categories */}
+
+            {/* Default categories */}
             <Card>
               <CardHeader>
-                <CardTitle>All Categories</CardTitle>
+                <CardTitle>Default Categories</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {storage.defaultCategories?.map((category) => (
+                  {defaultTodoCategories.map((category) => (
                     <Badge key={category} variant="secondary">{category}</Badge>
                   ))}
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Custom categories with edit/delete */}
             <Card>
               <CardHeader>
@@ -174,7 +173,7 @@ export default function CategoryDialog() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {selectedCategory && (
         <>
           <EditCategoryDialog 
@@ -182,7 +181,7 @@ export default function CategoryDialog() {
             open={editDialogOpen} 
             onOpenChange={setEditDialogOpen}
           />
-          
+
           <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>

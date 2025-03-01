@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,9 +25,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   });
 
   const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
-  //Remove Duplicates
   const uniqueCategories = [...new Set(allCategories)];
-
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -57,6 +55,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           estimatedAmount: values.estimatedAmount ? Number(values.estimatedAmount) : null,
           hasAssociatedExpense: values.hasAssociatedExpense ? 1 : 0,
           priority: values.priority ? 1 : 0,
+          category: values.category || "Unassigned"
         });
 
         const todoData = await todoResponse.json();
@@ -65,7 +64,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           await apiRequest("POST", "/api/expenses", {
             description: values.title,
             amount: values.estimatedAmount,
-            category: values.category,
+            category: values.category || "Unassigned",
             date: values.dueDate || new Date().toISOString(),
             todoId: todoData.id,
             isBudget: 1,
@@ -73,9 +72,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           });
         }
         return todoData;
-      } catch (error) {
-        console.error('Error submitting form:', error);
-        throw error;
       } finally {
         setIsSubmitting(false);
       }
@@ -95,28 +91,20 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest("POST", "/api/categories", { name });
-      const data = await response.json();
-      if (response.ok) {
-        return data;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create category');
       }
-      throw new Error(data.error || 'Failed to create category');
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      // Auto-select the newly created category
       form.setValue("category", data.name);
       setIsAddingCategory(false);
       setCategoryName("");
       toast({
         title: "Success",
         description: "Category created successfully"
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
       });
     }
   });
@@ -139,7 +127,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
               <FormControl>
                 <Input {...field} />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -153,7 +140,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
               <FormControl>
                 <Textarea {...field} value={field.value || ''} />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -165,7 +151,11 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             <FormItem>
               <FormLabel>Category</FormLabel>
               <div className="flex gap-2">
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value || "Unassigned"}
+                  defaultValue="Unassigned"
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
@@ -234,7 +224,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   }}
                 />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -253,7 +242,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   />
                 </FormControl>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -272,7 +260,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   />
                 </FormControl>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -293,7 +280,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                     onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
