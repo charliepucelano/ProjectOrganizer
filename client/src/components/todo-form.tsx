@@ -200,6 +200,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setIsAddingCategory(true);
                       }}
                     >
                       +
