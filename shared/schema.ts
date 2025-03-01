@@ -38,6 +38,8 @@ export const todos = pgTable("todos", {
   completed: integer("completed").notNull().default(0),
   dueDate: timestamp("due_date"),
   priority: integer("priority").notNull().default(0),
+  hasAssociatedExpense: integer("has_associated_expense").notNull().default(0),
+  estimatedAmount: real("estimated_amount"),
 });
 
 export const expenses = pgTable("expenses", {
@@ -46,6 +48,9 @@ export const expenses = pgTable("expenses", {
   amount: real("amount").notNull(),
   category: text("category").notNull(),
   date: timestamp("date").notNull(),
+  todoId: integer("todo_id").references(() => todos.id),
+  isBudget: integer("is_budget").notNull().default(0),
+  completedAt: timestamp("completed_at"),
 });
 
 export const insertTodoSchema = createInsertSchema(todos).omit({ id: true });

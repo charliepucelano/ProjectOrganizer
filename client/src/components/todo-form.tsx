@@ -37,16 +37,31 @@ export default function TodoForm() {
       category: "Pre-Move",
       priority: 0,
       completed: 0,
-      dueDate: null
+      dueDate: null,
+      hasAssociatedExpense: 0,
+      estimatedAmount: 0
     }
   });
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      await apiRequest("POST", "/api/todos", values);
+      const todo = await apiRequest("POST", "/api/todos", values);
+      const todoData = await todo.json();
+
+      if (values.hasAssociatedExpense) {
+        await apiRequest("POST", "/api/expenses", {
+          description: values.title,
+          amount: values.estimatedAmount,
+          category: values.category,
+          date: values.dueDate,
+          todoId: todoData.id,
+          isBudget: 1
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       form.reset();
       toast({
         title: "Success",
@@ -54,6 +69,8 @@ export default function TodoForm() {
       });
     }
   });
+
+  const hasExpense = form.watch("hasAssociatedExpense");
 
   return (
     <Form {...form}>
@@ -151,6 +168,44 @@ export default function TodoForm() {
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="hasAssociatedExpense"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center gap-2">
+                <FormLabel>Has Associated Expense</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value === 1}
+                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
+                  />
+                </FormControl>
+              </div>
+            </FormItem>
+          )}
+        />
+
+        {hasExpense === 1 && (
+          <FormField
+            control={form.control}
+            name="estimatedAmount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Estimated Amount</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    value={field.value}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
