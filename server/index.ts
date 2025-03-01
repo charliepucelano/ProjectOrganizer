@@ -46,9 +46,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Protect all API routes except auth-related ones
-app.use("/api", (req, res, next) => {
-  if (req.path.startsWith("/login") || req.path.startsWith("/logout") || req.path.startsWith("/user")) {
+// Protect all API routes and API docs except auth-related ones
+app.use(["/api", "/api-docs"], (req, res, next) => {
+  if (
+    req.path.startsWith("/api/login") || 
+    req.path.startsWith("/api/logout") || 
+    req.path.startsWith("/api/user")
+  ) {
     return next();
   }
   requireAuth(req, res, next);
