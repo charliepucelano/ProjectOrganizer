@@ -50,7 +50,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
 
   // Keep track of whether a new category was just added
   const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
-
+  
+  // All other hooks must be declared before any conditional returns
   // Effect to select newly added category when it becomes available
   useEffect(() => {
     if (newlyAddedCategory && categories?.includes(newlyAddedCategory)) {
@@ -60,6 +61,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     }
   }, [categories, newlyAddedCategory, form]);
 
+  // Declare all hooks at the top level before any conditional returns
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       try {
