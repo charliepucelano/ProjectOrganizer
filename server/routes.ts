@@ -7,9 +7,7 @@ export async function registerRoutes(app: Express) {
   // Custom Categories
   app.get("/api/categories", async (_req, res) => {
     const customCategories = await storage.getCustomCategories();
-    // Combine default and custom categories
-    const allCategories = [...customCategories.map(c => c.name)];
-    res.json(allCategories);
+    res.json(customCategories);
   });
 
   app.post("/api/categories", async (req, res) => {
@@ -59,19 +57,19 @@ export async function registerRoutes(app: Express) {
 
   app.delete("/api/categories/:id", async (req, res) => {
     const id = parseInt(req.params.id);
-    
+
     // Get the category name before deleting
     const customCategories = await storage.getCustomCategories();
     const categoryToDelete = customCategories.find(c => c.id === id);
-    
+
     if (categoryToDelete) {
       // Update all todos with this category to "Unassigned"
       await storage.updateTodosWithCategory(categoryToDelete.name, "Unassigned");
-      
+
       // Delete the category
       await storage.deleteCustomCategory(id);
     }
-    
+
     res.status(204).end();
   });
 

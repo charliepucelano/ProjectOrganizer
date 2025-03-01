@@ -30,7 +30,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   });
 
   // Get all categories (default + custom)
-  const allCategories = [...defaultTodoCategories, ...customCategories];
+  const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -96,26 +96,17 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
         title: "Success",
         description: todo ? "Task updated successfully" : "Task created successfully"
       });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save task",
-        variant: "destructive"
-      });
     }
   });
 
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await apiRequest("POST", "/api/categories", { name });
-      return response;
+      return await apiRequest("POST", "/api/categories", { name });
     },
     onSuccess: async (response) => {
       try {
         const data = await response.json();
         queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-
         // Auto-select the newly created category
         form.setValue("category", data.name);
         setIsAddingCategory(false);
@@ -186,11 +177,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
             <FormItem>
               <FormLabel>Category</FormLabel>
               <div className="flex gap-2">
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value}
-                  defaultValue={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -204,6 +191,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
+
                 <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
                   <DialogTrigger asChild>
                     <Button

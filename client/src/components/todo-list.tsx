@@ -5,7 +5,7 @@ import { Todo, defaultTodoCategories } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Trash2, DollarSign, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { format, addDays, startOfToday, isBefore, isAfter } from "date-fns";
+import { format, isWithinInterval, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TodoForm from "./todo-form";
@@ -26,15 +26,19 @@ export default function TodoList({ todos }: TodoListProps) {
   const [showPriority, setShowPriority] = useState(true);
   const { toast } = useToast();
 
-  const { data: categories = [] } = useQuery({
+  // Get custom categories
+  const { data: customCategories = [] } = useQuery({
     queryKey: ["/api/categories"]
   });
+
+  // Combine default and custom categories
+  const allCategories = ["all", ...defaultTodoCategories, ...customCategories.map(c => c.name)];
 
   // Calculate task statistics and organize todos
   const organizedTodos = useMemo(() => {
     let filteredTodos = [...todos];
-    const today = startOfToday();
-    const nextWeek = addDays(today, 7);
+    const today = startOfWeek(new Date());
+    const nextWeek = endOfWeek(new Date());
 
     // Apply filters
     if (filterBy === "completed") {
@@ -50,26 +54,24 @@ export default function TodoList({ todos }: TodoListProps) {
     // Calculate statistics
     const totalOpen = filteredTodos.filter(t => !t.completed).length;
     const totalCompleted = filteredTodos.filter(t => t.completed).length;
-    const dueSoon = filteredTodos.filter(t => 
-      t.dueDate && 
+    const dueSoon = filteredTodos.filter(t =>
+      t.dueDate &&
       !t.completed &&
-      isAfter(new Date(t.dueDate), today) && 
-      isBefore(new Date(t.dueDate), nextWeek)
+      isWithinInterval(new Date(t.dueDate), { start: today, end: nextWeek })
     ).length;
 
     // Organize todos by priority and date
     const highPriority = filteredTodos.filter(t => t.priority && !t.completed);
-    const nextSevenDays = filteredTodos.filter(t => 
+    const nextSevenDays = filteredTodos.filter(t =>
       !t.completed &&
       !t.priority &&
       t.dueDate &&
-      isAfter(new Date(t.dueDate), today) && 
-      isBefore(new Date(t.dueDate), nextWeek)
+      isWithinInterval(new Date(t.dueDate), { start: today, end: nextWeek })
     );
-    const otherOpen = filteredTodos.filter(t => 
-      !t.completed && 
-      !t.priority && 
-      (!t.dueDate || isAfter(new Date(t.dueDate), nextWeek))
+    const otherOpen = filteredTodos.filter(t =>
+      !t.completed &&
+      !t.priority &&
+      (!t.dueDate || !isWithinInterval(new Date(t.dueDate), { start: today, end: nextWeek }))
     );
     const completed = filteredTodos.filter(t => t.completed);
 
@@ -93,7 +95,7 @@ export default function TodoList({ todos }: TodoListProps) {
         completed: completed.sort(sortByDueDate)
       }
     };
-  }, [todos, filterBy, selectedCategory]);
+  }, [todos, filterBy, selectedCategory, customCategories]);
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
@@ -161,7 +163,7 @@ export default function TodoList({ todos }: TodoListProps) {
     >
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button 
+          <Button
             variant="ghost"
             size="sm"
             className={todo.completed ? 'text-green-600' : 'text-muted-foreground'}
@@ -179,7 +181,7 @@ export default function TodoList({ todos }: TodoListProps) {
               {todo.completed ? "Reopen Task?" : "Complete Task?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {todo.completed 
+              {todo.completed
                 ? "This will reopen the task. If this task has an associated expense, it will be marked as unpaid."
                 : "This will mark the task as completed. If this task has an associated expense, it will be marked as paid."}
             </AlertDialogDescription>
@@ -264,20 +266,17 @@ export default function TodoList({ todos }: TodoListProps) {
           <CardTitle>Edit Task</CardTitle>
         </CardHeader>
         <CardContent>
-          <TodoForm 
+          <TodoForm
             todo={{
               ...editingTodo,
               dueDate: editingTodo.dueDate ? new Date(editingTodo.dueDate).toISOString() : null
             }}
-            onCancel={() => setEditingTodo(null)} 
+            onCancel={() => setEditingTodo(null)}
           />
         </CardContent>
       </Card>
     );
   }
-
-  // Combine default and custom categories for filtering
-  const allCategories = ["all", ...defaultTodoCategories, ...(categories || [])];
 
   return (
     <div className="space-y-6">
