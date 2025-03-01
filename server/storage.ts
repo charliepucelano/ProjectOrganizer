@@ -42,7 +42,16 @@ export class MemStorage implements IStorage {
 
   async createTodo(todo: InsertTodo): Promise<Todo> {
     const id = this.todoId++;
-    const newTodo = { ...todo, id };
+    const newTodo = { 
+      ...todo,
+      id,
+      description: todo.description || null,
+      dueDate: todo.dueDate || null,
+      estimatedAmount: todo.estimatedAmount || null,
+      completed: todo.completed || 0,
+      priority: todo.priority || 0,
+      hasAssociatedExpense: todo.hasAssociatedExpense || 0
+    };
     this.todos.set(id, newTodo);
     return newTodo;
   }
@@ -66,7 +75,13 @@ export class MemStorage implements IStorage {
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const id = this.expenseId++;
-    const newExpense = { ...expense, id };
+    const newExpense = { 
+      ...expense,
+      id,
+      todoId: expense.todoId || null,
+      completedAt: expense.completedAt || null,
+      isBudget: expense.isBudget || 0
+    };
     this.expenses.set(id, newExpense);
     return newExpense;
   }

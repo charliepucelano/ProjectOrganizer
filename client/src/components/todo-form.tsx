@@ -52,7 +52,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     mutationFn: async (values: any) => {
       try {
         setIsSubmitting(true);
-        console.log('Submitting form with values:', values);
+        console.log('Submitting todo with values:', values);
 
         const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
         const method = todo ? "PATCH" : "POST";
@@ -67,15 +67,18 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
         });
 
         const todoData = await todoResponse.json();
+        console.log('Todo created:', todoData);
 
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
+          console.log('Creating associated expense');
           await apiRequest("POST", "/api/expenses", {
             description: values.title,
             amount: values.estimatedAmount,
             category: values.category,
             date: new Date().toISOString(),
             todoId: todoData.id,
-            isBudget: 1
+            isBudget: 1,
+            completedAt: null
           });
         }
         return todoData;
