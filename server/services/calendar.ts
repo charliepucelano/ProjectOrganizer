@@ -74,12 +74,19 @@ export function getAuthUrl() {
 
 export async function setCredentials(code: string) {
   try {
-    console.log("Setting Google Calendar credentials with auth code");
+    console.log('Setting Google Calendar credentials with auth code');
+    console.log('OAuth2 client configuration:', {
+      redirectUri: oauth2Client.redirectUri,
+      hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+      hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
+    });
+
     const { tokens } = await oauth2Client.getToken(code);
-    console.log("Token exchange successful, received tokens:", {
-      access_token: tokens.access_token ? "present" : "missing",
-      refresh_token: tokens.refresh_token ? "present" : "missing",
+    console.log('Token exchange successful, received tokens:', {
+      access_token: tokens.access_token ? 'present' : 'missing',
+      refresh_token: tokens.refresh_token ? 'present' : 'missing',
       expiry_date: tokens.expiry_date,
+      scope: tokens.scope
     });
 
     oauth2Client.setCredentials(tokens);

@@ -27,6 +27,13 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 // Register the Google OAuth callback route BEFORE any auth middleware
 app.get("/api/auth/google/callback", async (req, res) => {
   console.log('Received Google OAuth callback with query:', req.query);
+  console.log('Session state:', {
+    id: req.sessionID,
+    isAuthenticated: req.isAuthenticated(),
+    hasUser: !!req.user,
+    cookies: req.cookies
+  });
+
   try {
     const code = req.query.code as string;
     if (!code) {
