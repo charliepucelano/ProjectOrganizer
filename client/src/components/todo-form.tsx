@@ -1,18 +1,38 @@
+
 import { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { insertTodoSchema } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface TodoFormProps {
   todo?: any;
@@ -29,7 +49,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
 
   // Use categories from API or empty array if not loaded yet
   const todoCategories = categories || [];
@@ -48,15 +68,10 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     }
   });
 
-  // Keep track of whether a new category was just added
-  const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
-  
-  // All other hooks must be declared before any conditional returns
   // Effect to select newly added category when it becomes available
   useEffect(() => {
     if (newlyAddedCategory && categories?.includes(newlyAddedCategory)) {
       form.setValue("category", newlyAddedCategory);
-      form.trigger("category");
       setNewlyAddedCategory(null);
     }
   }, [categories, newlyAddedCategory, form]);
@@ -64,25 +79,14 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   // Declare all hooks at the top level before any conditional returns
   const mutation = useMutation({
     mutationFn: async (values: any) => {
+      setIsSubmitting(true);
       try {
-        setIsSubmitting(true);
-        console.log('Submitting todo with values:', values);
-
-        const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
         const method = todo ? "PATCH" : "POST";
-
-        const todoResponse = await apiRequest(method, endpoint, {
-          ...values,
-          description: values.description || null,
-          dueDate: values.dueDate || null,
-          estimatedAmount: values.estimatedAmount ? Number(values.estimatedAmount) : null,
-          hasAssociatedExpense: values.hasAssociatedExpense ? 1 : 0,
-          priority: values.priority ? 1 : 0,
-        });
-
-        const todoData = await todoResponse.json();
-        console.log('Todo created:', todoData);
-
+        const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
+        
+        const todoData = await apiRequest(method, endpoint, values);
+        
+        // If has associated expense, create that too
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
           console.log('Creating associated expense');
           await apiRequest("POST", "/api/expenses", {
@@ -122,50 +126,35 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     }
   });
 
+  // Category mutation
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await apiRequest("POST", "/api/categories", { name });
-      return response;
+      return await apiRequest("POST", "/api/categories", { name });
     },
     onSuccess: async (response) => {
       try {
         const data = await response.json();
-        // Store the newly created category name
+        // Make sure to set the newly added category name to track it
         setNewlyAddedCategory(data.name);
-        // Invalidate the categories query to refresh the list
         await queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-        // Close dialog and reset input
         setIsAddingCategory(false);
         setCategoryName("");
         toast({
           title: "Success",
-          description: "Category created successfully"
+          description: "Category added successfully"
         });
       } catch (error) {
-        console.error("Error processing category response:", error);
-        toast({
-          title: "Error",
-          description: "Failed to create category",
-          variant: "destructive"
-        });
+        console.error("Error handling category response:", error);
       }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create category",
+        description: error.message || "Failed to add category",
         variant: "destructive"
       });
     }
   });
-
-  const handleCategorySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (categoryName.trim()) {
-      categoryMutation.mutate(categoryName.trim());
-    }
-  };
 
   const onSubmit = async (data: any) => {
     if (isSubmitting) return;
@@ -247,32 +236,28 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                       +
                     </Button>
                   </DialogTrigger>
-                  <DialogContent onClick={(e) => e.stopPropagation()}>
+                  <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Create New Category</DialogTitle>
+                      <DialogTitle>Add New Category</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleCategorySubmit} className="space-y-4 pt-4">
-                      <Input
-                        value={categoryName}
-                        onChange={(e) => setCategoryName(e.target.value)}
-                        placeholder="Category name"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setIsAddingCategory(false);
-                            setCategoryName("");
-                          }}
+                    <div className="space-y-4 py-4">
+                      <div className="flex items-end gap-2">
+                        <div className="grid flex-1 gap-2">
+                          <Input
+                            id="category-name"
+                            placeholder="Category name"
+                            value={categoryName}
+                            onChange={(e) => setCategoryName(e.target.value)}
+                          />
+                        </div>
+                        <Button 
+                          onClick={() => categoryMutation.mutate(categoryName)}
+                          disabled={!categoryName.trim()}
                         >
-                          Cancel
-                        </Button>
-                        <Button type="submit">
-                          Create
+                          Add
                         </Button>
                       </div>
-                    </form>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -288,14 +273,10 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
             <FormItem>
               <FormLabel>Due Date</FormLabel>
               <FormControl>
-                <Input
-                  type="date"
-                  {...field}
-                  value={field.value ? field.value.split('T')[0] : ''}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    field.onChange(date ? new Date(date).toISOString() : null);
-                  }}
+                <Input 
+                  type="date" 
+                  {...field} 
+                  value={field.value || ''}
                 />
               </FormControl>
               <FormMessage />
@@ -307,17 +288,20 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
           control={form.control}
           name="priority"
           render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center gap-2">
-                <FormLabel>High Priority</FormLabel>
-                <FormControl>
-                  <Switch
-                    checked={field.value === 1}
-                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
-                  />
-                </FormControl>
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value === 1}
+                  onCheckedChange={(checked) => {
+                    field.onChange(checked ? 1 : 0);
+                  }}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>
+                  High Priority
+                </FormLabel>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -326,17 +310,20 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
           control={form.control}
           name="hasAssociatedExpense"
           render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center gap-2">
-                <FormLabel>Has Associated Expense</FormLabel>
-                <FormControl>
-                  <Switch
-                    checked={field.value === 1}
-                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
-                  />
-                </FormControl>
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value === 1}
+                  onCheckedChange={(checked) => {
+                    field.onChange(checked ? 1 : 0);
+                  }}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>
+                  Has Associated Cost
+                </FormLabel>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -347,13 +334,14 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
             name="estimatedAmount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Estimated Amount (€)</FormLabel>
+                <FormLabel>Estimated Amount</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
+                  <Input 
+                    type="number" 
                     step="0.01"
-                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                    value={field.value || ''}
+                    {...field}
+                    value={field.value === null ? '' : field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
                 </FormControl>
                 <FormMessage />
