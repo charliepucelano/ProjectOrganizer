@@ -42,6 +42,8 @@ export function getAuthUrl() {
     scope: scopes,
     prompt: "consent",
     include_granted_scopes: true,
+    state: Buffer.from(JSON.stringify({ redirectUri: `${host}/api/auth/google/callback` })).toString('base64'),
+    redirect_uri: `${host}/api/auth/google/callback` // Explicitly set the redirect URI
   });
 
   console.log("Generated auth URL:", url);
@@ -57,7 +59,11 @@ export async function setCredentials(code: string) {
       hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
     });
 
-    const { tokens } = await oauth2Client.getToken(code);
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: `${host}/api/auth/google/callback` // Explicitly set the redirect URI for token exchange
+    });
+
     console.log('Token exchange successful, received tokens:', {
       access_token: tokens.access_token ? 'present' : 'missing',
       refresh_token: tokens.refresh_token ? 'present' : 'missing',
