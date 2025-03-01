@@ -4,9 +4,8 @@ import { storage } from "./storage";
 import { insertTodoSchema, insertExpenseSchema, defaultTodoCategories } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
-  // Categories (maintaining as a single set)
+  // Categories
   app.get("/api/categories", async (_req, res) => {
-    // Send categories array
     res.json([...defaultTodoCategories]);
   });
 
@@ -31,7 +30,7 @@ export async function registerRoutes(app: Express) {
   });
 
   app.delete("/api/categories/:name", async (req, res) => {
-    const categoryName = req.params.name;
+    const categoryName = decodeURIComponent(req.params.name);
 
     // Don't allow deleting "Unassigned"
     if (categoryName === "Unassigned") {
@@ -47,26 +46,37 @@ export async function registerRoutes(app: Express) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    // Remove the category
-    (defaultTodoCategories as string[]).splice(categoryIndex, 1);
-
-    // Update all todos with this category to "Unassigned"
-    const todos = await storage.getTodos();
-    for (const todo of todos) {
-      if (todo.category.toLowerCase() === categoryName.toLowerCase()) {
-        await storage.updateTodo(todo.id, { ...todo, category: "Unassigned" });
+    try {
+      // First, update all todos with this category to "Unassigned"
+      const todos = await storage.getTodos();
+      for (const todo of todos) {
+        if (todo.category.toLowerCase() === categoryName.toLowerCase()) {
+          await storage.updateTodo(todo.id, {
+            ...todo,
+            category: "Unassigned"
+          });
+        }
       }
-    }
 
-    // Update all expenses with this category to "Other"
-    const expenses = await storage.getExpenses();
-    for (const expense of expenses) {
-      if (expense.category.toLowerCase() === categoryName.toLowerCase()) {
-        await storage.updateExpense(expense.id, { ...expense, category: "Other" });
+      // Update all expenses with this category to "Other"
+      const expenses = await storage.getExpenses();
+      for (const expense of expenses) {
+        if (expense.category.toLowerCase() === categoryName.toLowerCase()) {
+          await storage.updateExpense(expense.id, {
+            ...expense,
+            category: "Other"
+          });
+        }
       }
-    }
 
-    res.status(200).json({ message: "Category deleted successfully" });
+      // Finally, remove the category from the list
+      (defaultTodoCategories as string[]).splice(categoryIndex, 1);
+
+      res.status(200).json({ message: "Category deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      res.status(500).json({ error: "Failed to delete category" });
+    }
   });
 
   // Todos
