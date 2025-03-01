@@ -1,11 +1,21 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupAuth, createInitialUser, requireAuth } from "./auth";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Setup authentication
+setupAuth(app);
+
+// Create initial user
+createInitialUser().catch(err => {
+  console.error("Failed to create initial user:", err);
+});
+
+// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -36,6 +46,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Protect all API routes except auth-related ones
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/login") || req.path.startsWith("/logout") || req.path.startsWith("/user")) {
+    return next();
+  }
+  requireAuth(req, res, next);
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -47,9 +65,6 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
@@ -80,7 +95,7 @@ app.use((req, res, next) => {
       });
     });
   };
-  
+
   // Start with port 5000 and try alternatives if needed
   tryPort(5000).catch(err => {
     log(`Failed to start server: ${err.message}`);
