@@ -13,6 +13,7 @@ export async function createCalendarEvent(todo: Todo) {
   if (!todo.dueDate) return null;
 
   try {
+    console.log('Creating calendar event for todo:', todo.title);
     const event = {
       summary: todo.title,
       description: todo.description || '',
@@ -35,22 +36,41 @@ export async function createCalendarEvent(todo: Todo) {
     });
 
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating calendar event:', error);
-    throw error;
+    if (error.code === 401) {
+      throw new Error('Calendar authorization expired. Please reconnect your Google Calendar.');
+    }
+    throw new Error('Failed to create calendar event. Please try again later.');
   }
 }
 
 export function getAuthUrl() {
-  const scopes = ['https://www.googleapis.com/auth/calendar.events'];
+  console.log('Generating Google Calendar auth URL');
+  const scopes = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/calendar.events'
+  ];
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
+    prompt: 'consent',
+    include_granted_scopes: true
   });
 }
 
 export async function setCredentials(code: string) {
-  const { tokens } = await oauth2Client.getToken(code);
-  oauth2Client.setCredentials(tokens);
-  return tokens;
+  try {
+    console.log('Setting Google Calendar credentials with auth code');
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+    console.log('Successfully obtained Google Calendar tokens');
+    return tokens;
+  } catch (error: any) {
+    console.error('Error setting credentials:', error);
+    if (error.response?.data?.error === 'invalid_grant') {
+      throw new Error('Invalid authorization code. Please try connecting again.');
+    }
+    throw new Error('Failed to connect to Google Calendar. Please check your permissions and try again.');
+  }
 }

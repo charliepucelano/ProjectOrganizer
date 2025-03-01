@@ -412,6 +412,11 @@ export async function registerRoutes(app: Express) {
   app.get("/api/auth/google/callback", requireAuth, async (req, res) => {
     try {
       const code = req.query.code as string;
+      if (!code) {
+        console.log('No authorization code received from Google');
+        return res.redirect("/?error=google_auth_cancelled");
+      }
+
       const tokens = await setCredentials(code);
 
       if (req.user) {
@@ -424,7 +429,8 @@ export async function registerRoutes(app: Express) {
       res.redirect("/");
     } catch (error) {
       console.error("Google OAuth callback error:", error);
-      res.redirect("/?error=google_auth_failed");
+      const errorMessage = encodeURIComponent((error as Error).message || 'Failed to connect to Google Calendar');
+      res.redirect(`/?error=${errorMessage}`);
     }
   });
 

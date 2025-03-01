@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Calendar } from "lucide-react";
 import type { Todo } from "@shared/schema";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 export default function Home() {
   const { data: todos, isLoading } = useQuery<Todo[]>({
@@ -13,6 +16,39 @@ export default function Home() {
   });
 
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [location] = useLocation();
+
+  // Handle Google Calendar errors
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+
+    if (error) {
+      if (error === 'google_auth_cancelled') {
+        toast({
+          title: "Calendar Connection Cancelled",
+          description: "You cancelled the Google Calendar connection.",
+          variant: "default"
+        });
+      } else if (error === 'google_auth_failed') {
+        toast({
+          title: "Calendar Connection Failed",
+          description: "Failed to connect to Google Calendar. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Calendar Connection Error",
+          description: decodeURIComponent(error),
+          variant: "destructive"
+        });
+      }
+
+      // Clean up the URL
+      window.history.replaceState({}, '', location);
+    }
+  }, [location, toast]);
 
   if (isLoading) {
     return <div>Loading...</div>;
