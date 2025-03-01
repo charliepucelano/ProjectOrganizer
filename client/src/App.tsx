@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Budget from "@/pages/budget";
+import Categories from "@/pages/categories";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocation } from "wouter";
 
@@ -18,6 +19,7 @@ function Navigation() {
           <TabsList>
             <TabsTrigger value="/">Tasks</TabsTrigger>
             <TabsTrigger value="/budget">Budget</TabsTrigger>
+            <TabsTrigger value="/categories">Categories</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -30,6 +32,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/budget" component={Budget} />
+      <Route path="/categories" component={Categories} />
       <Route component={NotFound} />
     </Switch>
   );
