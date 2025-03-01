@@ -42,7 +42,7 @@ export default function AuthPage() {
         title: "Success",
         description: "Logged in successfully",
       });
-      navigate("/");
+      navigate("/"); // Redirect to Tasks view after successful login
     },
     onError: (error: Error) => {
       toast({

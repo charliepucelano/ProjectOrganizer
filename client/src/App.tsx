@@ -8,16 +8,21 @@ import Budget from "@/pages/budget";
 import Categories from "@/pages/categories";
 import AuthPage from "@/pages/auth";
 import { ProtectedRoute } from "@/lib/protected-route";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { LogOut } from "lucide-react";
 
 function Navigation() {
   const [location, navigate] = useLocation();
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
 
   return (
     <div className="w-full py-4 border-b">
-      <div className="container mx-auto">
+      <div className="container mx-auto flex justify-between items-center">
         <Tabs value={location} onValueChange={navigate}>
           <TabsList>
             <TabsTrigger value="/">Tasks</TabsTrigger>
@@ -25,6 +30,17 @@ function Navigation() {
             <TabsTrigger value="/categories">Categories</TabsTrigger>
           </TabsList>
         </Tabs>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={() => {
+            logout();
+            navigate("/auth");
+          }}
+          title="Logout"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
