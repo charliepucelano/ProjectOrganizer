@@ -30,7 +30,7 @@ export const todos = pgTable("todos", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  category: text("category").notNull(),
+  category: text("category").notNull().default("Unassigned"),
   completed: integer("completed").notNull().default(0),
   dueDate: timestamp("due_date"),
   priority: integer("priority").notNull().default(0),
@@ -53,7 +53,7 @@ export const expenses = pgTable("expenses", {
 export const insertTodoSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable(),
-  category: z.string().min(1, "Category is required").default("Unassigned"),
+  category: z.string().default("Unassigned"),
   completed: z.number().default(0),
   dueDate: z.string().nullable(),
   priority: z.number().default(0),

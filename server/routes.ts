@@ -32,47 +32,6 @@ export async function registerRoutes(app: Express) {
     res.json(category);
   });
 
-  app.put("/api/categories/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    const parsed = insertCustomCategorySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error });
-    }
-
-    // Check if category already exists (case insensitive)
-    const customCategories = await storage.getCustomCategories();
-    const categoryExists = customCategories.some(
-      c => c.id !== id && c.name.toLowerCase() === parsed.data.name.toLowerCase()
-    ) || defaultTodoCategories.some(
-      c => c.toLowerCase() === parsed.data.name.toLowerCase()
-    );
-
-    if (categoryExists) {
-      return res.status(400).json({ error: "Category already exists" });
-    }
-
-    const category = await storage.updateCustomCategory(id, parsed.data);
-    res.json(category);
-  });
-
-  app.delete("/api/categories/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-
-    // Get the category name before deleting
-    const customCategories = await storage.getCustomCategories();
-    const categoryToDelete = customCategories.find(c => c.id === id);
-
-    if (categoryToDelete) {
-      // Update all todos with this category to "Unassigned"
-      await storage.updateTodosWithCategory(categoryToDelete.name, "Unassigned");
-
-      // Delete the category
-      await storage.deleteCustomCategory(id);
-    }
-
-    res.status(204).end();
-  });
-
   // Todos
   app.get("/api/todos", async (_req, res) => {
     const todos = await storage.getTodos();

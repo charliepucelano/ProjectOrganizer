@@ -14,12 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-interface TodoFormProps {
-  todo?: any;
-  onCancel?: () => void;
-}
-
-export default function TodoForm({ todo, onCancel }: TodoFormProps) {
+export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: () => void }) {
   const { toast } = useToast();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
@@ -29,8 +24,10 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     queryKey: ["/api/categories"]
   });
 
-  // Get all categories (default + custom)
   const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
+  //Remove Duplicates
+  const uniqueCategories = [...new Set(allCategories)];
+
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -50,8 +47,6 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     mutationFn: async (values: any) => {
       try {
         setIsSubmitting(true);
-        console.log('Submitting todo with values:', values);
-
         const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
         const method = todo ? "PATCH" : "POST";
 
@@ -65,10 +60,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
         });
 
         const todoData = await todoResponse.json();
-        console.log('Todo created:', todoData);
 
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
-          console.log('Creating associated expense');
           await apiRequest("POST", "/api/expenses", {
             description: values.title,
             amount: values.estimatedAmount,
@@ -101,33 +94,28 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
 
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      return await apiRequest("POST", "/api/categories", { name });
-    },
-    onSuccess: async (response) => {
-      try {
-        const data = await response.json();
-        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-        // Auto-select the newly created category
-        form.setValue("category", data.name);
-        setIsAddingCategory(false);
-        setCategoryName("");
-        toast({
-          title: "Success",
-          description: "Category created successfully"
-        });
-      } catch (error) {
-        console.error("Error processing category response:", error);
-        toast({
-          title: "Error",
-          description: "Failed to create category",
-          variant: "destructive"
-        });
+      const response = await apiRequest("POST", "/api/categories", { name });
+      const data = await response.json();
+      if (response.ok) {
+        return data;
       }
+      throw new Error(data.error || 'Failed to create category');
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      // Auto-select the newly created category
+      form.setValue("category", data.name);
+      setIsAddingCategory(false);
+      setCategoryName("");
+      toast({
+        title: "Success",
+        description: "Category created successfully"
+      });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create category",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -180,11 +168,11 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {allCategories.map((category) => (
+                    {uniqueCategories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -198,11 +186,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                       variant="outline"
                       type="button"
                       size="icon"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setIsAddingCategory(true);
-                      }}
+                      onClick={() => setIsAddingCategory(true)}
                     >
                       +
                     </Button>
@@ -229,7 +213,6 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                   </DialogContent>
                 </Dialog>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
