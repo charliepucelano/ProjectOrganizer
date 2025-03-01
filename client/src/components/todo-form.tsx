@@ -211,8 +211,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                       Unassigned
                     </SelectItem>
                     {(categories || []).map((category) => (
-                      <SelectItem key={category.name} value={category.name}>
-                        {category.name}
+                      <SelectItem key={category} value={category}>
+                        {category}
                       </SelectItem>
                     ))}
                   </SelectContent>
