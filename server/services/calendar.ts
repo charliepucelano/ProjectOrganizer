@@ -97,14 +97,27 @@ export async function setCredentials(code: string) {
   }
 }
 
+function formatEventDescription(todo: Todo) {
+  const parts = [
+    todo.description || '',
+    `Category: ${todo.category}`,
+  ];
+
+  if (todo.hasAssociatedExpense && todo.estimatedAmount) {
+    parts.push(`Estimated Amount: $${todo.estimatedAmount.toFixed(2)}`);
+  }
+
+  return parts.filter(Boolean).join('\n\n');
+}
+
 export async function createCalendarEvent(todo: Todo) {
   if (!todo.dueDate) return null;
 
   try {
     console.log("Creating calendar event for todo:", todo.title);
     const event = {
-      summary: todo.title,
-      description: todo.description || "",
+      summary: `[${todo.category}] ${todo.title}`,
+      description: formatEventDescription(todo),
       start: {
         dateTime: new Date(todo.dueDate).toISOString(),
         timeZone: "UTC",
@@ -116,6 +129,8 @@ export async function createCalendarEvent(todo: Todo) {
       reminders: {
         useDefault: true,
       },
+      // Add colorId based on priority (7 is red for high priority)
+      colorId: todo.priority ? "7" : undefined,
     };
 
     const response = await calendar.events.insert({
@@ -133,4 +148,28 @@ export async function createCalendarEvent(todo: Todo) {
     }
     throw new Error("Failed to create calendar event. Please try again later.");
   }
+}
+
+// New function to sync all open tasks with due dates
+export async function syncAllTasks(todos: Todo[]) {
+  const openTodosWithDueDate = todos.filter(todo => 
+    !todo.completed && todo.dueDate
+  );
+
+  console.log(`Syncing ${openTodosWithDueDate.length} tasks to Google Calendar`);
+
+  const results = await Promise.allSettled(
+    openTodosWithDueDate.map(createCalendarEvent)
+  );
+
+  const successful = results.filter(r => r.status === 'fulfilled').length;
+  const failed = results.filter(r => r.status === 'rejected').length;
+
+  console.log(`Sync complete. Successfully synced: ${successful}, Failed: ${failed}`);
+
+  if (failed > 0) {
+    throw new Error(`Failed to sync ${failed} tasks to Google Calendar`);
+  }
+
+  return { successful, failed };
 }

@@ -13,6 +13,7 @@ import {
   getAuthUrl,
   setCredentials,
   createCalendarEvent,
+  syncAllTasks,
 } from "./services/calendar";
 
 export async function registerRoutes(app: Express) {
@@ -404,6 +405,22 @@ export async function registerRoutes(app: Express) {
     console.log('Starting Google Calendar OAuth flow');
     const authUrl = getAuthUrl();
     res.redirect(authUrl);
+  });
+
+  // Add this near the other Google Calendar related routes
+  app.post("/api/sync-calendar", requireAuth, async (req, res) => {
+    if (!req.user?.googleAccessToken) {
+      return res.status(401).json({ error: "Google Calendar not connected" });
+    }
+
+    try {
+      const todos = await storage.getTodos();
+      const result = await syncAllTasks(todos);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to sync calendar:", error);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   return createServer(app);
