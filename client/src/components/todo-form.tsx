@@ -26,6 +26,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   });
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
 
   const todoCategories = [
     ...defaultTodoCategories,
@@ -54,12 +55,12 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       const todoResponse = await apiRequest(method, endpoint, values);
       const todoData = await todoResponse.json();
 
-      if (values.hasAssociatedExpense) {
+      if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
         await apiRequest("POST", "/api/expenses", {
           description: values.title,
           amount: values.estimatedAmount,
           category: values.category,
-          date: values.dueDate,
+          date: values.dueDate || new Date().toISOString(),
           todoId: todoData.id,
           isBudget: 1
         });
@@ -84,6 +85,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setIsAddingCategory(false);
+      setCategoryName("");
       toast({
         title: "Success",
         description: "Category created successfully"
@@ -96,6 +98,14 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const [tempDate, setTempDate] = useState<Date | undefined>(
     form.getValues("dueDate") ? new Date(form.getValues("dueDate")) : undefined
   );
+
+  const handleCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (categoryName.trim()) {
+      categoryMutation.mutate(categoryName.trim());
+    }
+  };
 
   return (
     <Form {...form}>
@@ -156,47 +166,38 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setIsAddingCategory(true);
                       }}
                     >
                       +
                     </Button>
                   </DialogTrigger>
-                  <DialogContent onClick={(e) => e.stopPropagation()}>
+                  <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create New Category</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 pt-4">
+                    <form onSubmit={handleCategorySubmit} className="space-y-4 pt-4">
                       <Input 
+                        value={categoryName}
+                        onChange={(e) => setCategoryName(e.target.value)}
                         placeholder="Category name"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            categoryMutation.mutate(e.target.value);
-                          }
-                        }}
                       />
                       <div className="flex justify-end gap-2">
                         <Button 
                           type="button" 
                           variant="outline"
-                          onClick={() => setIsAddingCategory(false)}
+                          onClick={() => {
+                            setIsAddingCategory(false);
+                            setCategoryName("");
+                          }}
                         >
                           Cancel
                         </Button>
-                        <Button 
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const input = e.currentTarget.parentElement?.parentElement?.querySelector('input');
-                            if (input?.value) {
-                              categoryMutation.mutate(input.value);
-                            }
-                          }}
-                        >
+                        <Button type="submit">
                           Create
                         </Button>
                       </div>
-                    </div>
+                    </form>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -243,7 +244,11 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsDatePickerOpen(false)}
+                        onClick={() => {
+                          setIsDatePickerOpen(false);
+                          setTempDate(undefined);
+                          field.onChange(null);
+                        }}
                       >
                         Cancel
                       </Button>
