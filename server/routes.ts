@@ -30,6 +30,37 @@ export async function registerRoutes(app: Express) {
     res.json({ name: trimmedName });
   });
 
+  app.delete("/api/categories/:name", async (req, res) => {
+    const categoryName = req.params.name;
+
+    // Don't allow deleting "Unassigned"
+    if (categoryName === "Unassigned") {
+      return res.status(400).json({ error: "Cannot delete the Unassigned category" });
+    }
+
+    // Check if category exists
+    const categoryIndex = defaultTodoCategories.findIndex(
+      c => c.toLowerCase() === categoryName.toLowerCase()
+    );
+
+    if (categoryIndex === -1) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Remove the category
+    (defaultTodoCategories as string[]).splice(categoryIndex, 1);
+
+    // Update all todos with this category to "Unassigned"
+    const todos = await storage.getTodos();
+    for (const todo of todos) {
+      if (todo.category.toLowerCase() === categoryName.toLowerCase()) {
+        await storage.updateTodo(todo.id, { ...todo, category: "Unassigned" });
+      }
+    }
+
+    res.status(200).json({ message: "Category deleted successfully" });
+  });
+
   // Todos
   app.get("/api/todos", async (_req, res) => {
     const todos = await storage.getTodos();
