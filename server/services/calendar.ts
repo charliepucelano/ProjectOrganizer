@@ -1,13 +1,13 @@
 import { google } from "googleapis";
 import { Todo } from "@shared/schema";
 
-// Get the host from environment or use the Replit domain
-const host = 'https://913ab86d-d70d-412c-9bf2-4971d8e3a307-00-3r1iwxlz01r7b.janeway.replit.dev';
+// Hardcode the exact redirect URI to ensure consistency
+const REDIRECT_URI = 'https://913ab86d-d70d-412c-9bf2-4971d8e3a307-00-3r1iwxlz01r7b.janeway.replit.dev/api/auth/google/callback';
 
 // Log OAuth2 client configuration (without exposing secrets)
 console.log(
   "Initializing OAuth2 client with redirect URI:",
-  `${host}/api/auth/google/callback`
+  REDIRECT_URI
 );
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -19,7 +19,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${host}/api/auth/google/callback`
+  REDIRECT_URI
 );
 
 const calendar = google.calendar({ version: "v3", auth: oauth2Client });
@@ -32,36 +32,40 @@ export function getAuthUrl() {
   ];
 
   console.log('OAuth2 client configuration:', {
-    redirectUri: `${host}/api/auth/google/callback`,
+    redirectUri: REDIRECT_URI,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
   });
 
-  const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: scopes,
-    prompt: "consent",
-    include_granted_scopes: true,
-    state: Buffer.from(JSON.stringify({ redirectUri: `${host}/api/auth/google/callback` })).toString('base64'),
-    redirect_uri: `${host}/api/auth/google/callback` // Explicitly set the redirect URI
-  });
+  try {
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      prompt: "consent",
+      include_granted_scopes: true,
+      redirect_uri: REDIRECT_URI // Explicitly set the redirect URI
+    });
 
-  console.log("Generated auth URL:", url);
-  return url;
+    console.log("Generated auth URL:", url);
+    return url;
+  } catch (error) {
+    console.error("Error generating auth URL:", error);
+    throw new Error("Failed to generate authorization URL");
+  }
 }
 
 export async function setCredentials(code: string) {
   try {
     console.log('Setting Google Calendar credentials with auth code');
     console.log('OAuth2 client configuration:', {
-      redirectUri: `${host}/api/auth/google/callback`,
+      redirectUri: REDIRECT_URI,
       hasClientId: !!process.env.GOOGLE_CLIENT_ID,
       hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
     });
 
     const { tokens } = await oauth2Client.getToken({
       code,
-      redirect_uri: `${host}/api/auth/google/callback` // Explicitly set the redirect URI for token exchange
+      redirect_uri: REDIRECT_URI // Explicitly set the redirect URI for token exchange
     });
 
     console.log('Token exchange successful, received tokens:', {
