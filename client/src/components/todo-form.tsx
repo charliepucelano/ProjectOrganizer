@@ -111,6 +111,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
   const handleCategorySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!categoryName.trim()) return;
     categoryMutation.mutate(categoryName.trim());
   };
@@ -176,7 +177,11 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       variant="outline"
                       type="button"
                       size="icon"
-                      onClick={() => setIsAddingCategory(true)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsAddingCategory(true);
+                      }}
                     >
                       +
                     </Button>
