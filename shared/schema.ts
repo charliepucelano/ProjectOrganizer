@@ -52,7 +52,7 @@ export const expenses = pgTable("expenses", {
 });
 
 // Create a base todo schema with proper validation
-const baseTodoSchema = {
+const baseTodoSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable(),
   category: z.string().min(1, "Category is required"),
@@ -61,10 +61,10 @@ const baseTodoSchema = {
   priority: z.number().default(0),
   hasAssociatedExpense: z.number().default(0),
   estimatedAmount: z.number().nullable(),
-};
+});
 
 // Create a base expense schema with proper validation
-const baseExpenseSchema = {
+const baseExpenseSchema = z.object({
   description: z.string().min(1, "Description is required"),
   amount: z.number().min(0, "Amount must be positive"),
   category: z.string().min(1, "Category is required"),
@@ -72,11 +72,11 @@ const baseExpenseSchema = {
   todoId: z.number().nullable(),
   isBudget: z.number().default(0),
   completedAt: z.string().nullable(),
-};
+});
 
 // Use the base schemas for both insert and update operations
-export const insertTodoSchema = z.object(baseTodoSchema);
-export const insertExpenseSchema = z.object(baseExpenseSchema);
+export const insertTodoSchema = baseTodoSchema;
+export const insertExpenseSchema = baseExpenseSchema;
 export const insertCustomCategorySchema = z.object({
   name: z.string().min(1, "Category name is required"),
 });

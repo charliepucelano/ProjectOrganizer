@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,10 +52,20 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     mutationFn: async (values: any) => {
       try {
         setIsSubmitting(true);
+        console.log('Submitting form with values:', values);
+
         const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
         const method = todo ? "PATCH" : "POST";
 
-        const todoResponse = await apiRequest(method, endpoint, values);
+        const todoResponse = await apiRequest(method, endpoint, {
+          ...values,
+          description: values.description || null,
+          dueDate: values.dueDate || null,
+          estimatedAmount: values.estimatedAmount ? Number(values.estimatedAmount) : null,
+          hasAssociatedExpense: values.hasAssociatedExpense ? 1 : 0,
+          priority: values.priority ? 1 : 0,
+        });
+
         const todoData = await todoResponse.json();
 
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
@@ -127,23 +137,9 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const onSubmit = async (data: any) => {
     if (isSubmitting) return;
     try {
-      const formData = {
-        ...data,
-        description: data.description || null,
-        dueDate: data.dueDate || null,
-        estimatedAmount: data.estimatedAmount ? Number(data.estimatedAmount) : null,
-        hasAssociatedExpense: data.hasAssociatedExpense ? 1 : 0,
-        priority: data.priority ? 1 : 0,
-      };
-
-      await mutation.mutateAsync(formData);
+      await mutation.mutateAsync(data);
     } catch (error) {
       console.error("Form submission error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save todo. Please check all fields and try again.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -159,6 +155,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
               <FormControl>
                 <Input {...field} />
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -170,8 +167,9 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea {...field} />
+                <Textarea {...field} value={field.value || ''} />
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -241,6 +239,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   </DialogContent>
                 </Dialog>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -307,6 +306,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   </div>
                 </PopoverContent>
               </Popover>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -325,6 +325,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   />
                 </FormControl>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -340,10 +341,11 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   <Input
                     type="number"
                     step="0.01"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
                     value={field.value || ''}
                   />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -363,6 +365,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                   />
                 </FormControl>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
