@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
+import { insertTodoSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,19 +14,26 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: () => void }) {
+interface TodoFormProps {
+  todo?: any;
+  onCancel?: () => void;
+}
+
+export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   const { toast } = useToast();
-  const { data: customCategories } = useQuery({
-    queryKey: ["/api/categories"]
+  const { data: categories } = useQuery({
+    queryKey: ["/api/categories"],
+    refetchOnWindowFocus: true
   });
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
   const todoCategories = [
-    ...defaultTodoCategories,
-    ...(customCategories?.map(c => c.name) || [])
+    "Unassigned",
+    ...(categories?.map(c => c.name) || [])
   ];
 
   const form = useForm({
@@ -200,9 +207,12 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {todoCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    <SelectItem key="Unassigned" value="Unassigned">
+                      Unassigned
+                    </SelectItem>
+                    {(categories || []).map((category) => (
+                      <SelectItem key={category.name} value={category.name}>
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -273,6 +273,13 @@ export default function TodoList({ todos }: TodoListProps) {
     );
   }
 
+  // Query for categories and refresh when needed
+  const { data: categories, refetch: refetchCategories } = useQuery({
+    queryKey: ["/api/categories"],
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000 // Refresh every 3 seconds
+  });
+
   const allCategories = [
     "all",
     ...(categories || [])
