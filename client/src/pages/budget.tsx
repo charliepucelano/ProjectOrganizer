@@ -3,21 +3,71 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ExpenseForm from "@/components/expense-form";
 import type { Expense } from "@shared/schema";
 import { format } from "date-fns";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export default function Budget() {
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/expenses"]
+  });
+  const { toast } = useToast();
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (expense: Expense) => {
+      await apiRequest("PATCH", `/api/expenses/${expense.id}`, {
+        ...expense,
+        isBudget: 0,
+        completedAt: new Date().toISOString()
+      });
+
+      // If this expense is associated with a todo, mark it as completed
+      if (expense.todoId) {
+        await apiRequest("PATCH", `/api/todos/${expense.todoId}`, {
+          completed: 1
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
+      toast({
+        title: "Success",
+        description: "Expense marked as paid"
+      });
+    }
   });
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  const actualExpenses = expenses?.filter(e => !e.isBudget) || [];
-  const budgetExpenses = expenses?.filter(e => e.isBudget) || [];
+  const estimatedExpenses = expenses?.filter(e => e.isBudget) || [];
+  const paidExpenses = expenses?.filter(e => !e.isBudget) || [];
 
-  const actualTotal = actualExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const budgetTotal = budgetExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const estimatedTotal = estimatedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const paidTotal = paidExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  if (editingExpense) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Expense</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ExpenseForm 
+            expense={editingExpense} 
+            onCancel={() => setEditingExpense(null)} 
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -39,11 +89,11 @@ export default function Budget() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div>Actual Expenses: ${actualTotal.toFixed(2)}</div>
-              <div>Estimated Future Expenses: ${budgetTotal.toFixed(2)}</div>
+              <div>Estimated Budget: ${estimatedTotal.toFixed(2)}</div>
+              <div>Paid Expenses: ${paidTotal.toFixed(2)}</div>
               <div className="pt-2 border-t">
                 <div className="text-lg font-semibold">
-                  Total Budget: ${(actualTotal + budgetTotal).toFixed(2)}
+                  Total Budget: ${(estimatedTotal + paidTotal).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -53,11 +103,11 @@ export default function Budget() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Estimated Future Expenses</CardTitle>
+          <CardTitle>Estimated Budget</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {budgetExpenses.map((expense) => (
+            {estimatedExpenses.map((expense) => (
               <div
                 key={expense.id}
                 className="flex justify-between items-center p-4 border rounded-lg bg-muted/50"
@@ -68,20 +118,53 @@ export default function Budget() {
                     Due: {format(new Date(expense.date), "PPP")} - {expense.category}
                   </div>
                 </div>
-                <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm">Mark as Paid</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Mark Expense as Paid?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will mark the expense as paid. If this expense is associated with a task, the task will also be marked as completed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => markAsPaidMutation.mutate(expense)}>
+                          Confirm
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingExpense(expense)}
+                  >
+                    Edit
+                  </Button>
+                </div>
               </div>
             ))}
+            {estimatedExpenses.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                No estimated expenses yet.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Actual Expenses</CardTitle>
+          <CardTitle>Paid Expenses</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {actualExpenses.map((expense) => (
+            {paidExpenses.map((expense) => (
               <div
                 key={expense.id}
                 className="flex justify-between items-center p-4 border rounded-lg"
@@ -97,9 +180,23 @@ export default function Budget() {
                     </div>
                   )}
                 </div>
-                <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold">${expense.amount.toFixed(2)}</div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingExpense(expense)}
+                  >
+                    Edit
+                  </Button>
+                </div>
               </div>
             ))}
+            {paidExpenses.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                No paid expenses yet.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

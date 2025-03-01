@@ -2,14 +2,15 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Todo } from "@shared/schema";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Trash2, DollarSign, Pencil } from "lucide-react";
+import { Trash2, DollarSign, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TodoForm from "./todo-form";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface TodoListProps {
   todos: Todo[];
@@ -17,6 +18,7 @@ interface TodoListProps {
 
 export default function TodoList({ todos }: TodoListProps) {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const { toast } = useToast();
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
@@ -27,27 +29,31 @@ export default function TodoList({ todos }: TodoListProps) {
         { completed }
       );
 
-      // If the todo has an associated expense and is being completed
-      if (todo.hasAssociatedExpense && completed === 1) {
+      // If the todo has an associated expense
+      if (todo.hasAssociatedExpense) {
         const response = await apiRequest("GET", `/api/expenses`);
         const expenses = await response.json();
-        const expense = expenses.find((e: any) => e.todoId === todo.id && e.isBudget);
+        const expense = expenses.find((e: any) => e.todoId === todo.id);
 
         if (expense) {
           await apiRequest(
             "PATCH",
             `/api/expenses/${expense.id}`,
             {
-              isBudget: 0,
-              completedAt: new Date().toISOString()
+              isBudget: completed ? 0 : 1,
+              completedAt: completed ? new Date().toISOString() : null
             }
           );
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, todo) => {
       queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      toast({
+        title: "Success",
+        description: `Task ${todo.completed ? "reopened" : "completed"} successfully`
+      });
     }
   });
 
@@ -66,6 +72,10 @@ export default function TodoList({ todos }: TodoListProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      toast({
+        title: "Success",
+        description: "Task deleted successfully"
+      });
     }
   });
 
@@ -73,7 +83,7 @@ export default function TodoList({ todos }: TodoListProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Edit Todo</CardTitle>
+          <CardTitle>Edit Task</CardTitle>
         </CardHeader>
         <CardContent>
           <TodoForm 
@@ -99,12 +109,44 @@ export default function TodoList({ todos }: TodoListProps) {
                 todo.completed ? 'bg-muted/50' : ''
               }`}
             >
-              <Checkbox
-                checked={!!todo.completed}
-                onCheckedChange={() => toggleMutation.mutate(todo)}
-              />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    className={todo.completed ? 'text-green-600' : 'text-muted-foreground'}
+                  >
+                    {todo.completed ? (
+                      <XCircle className="h-6 w-6" />
+                    ) : (
+                      <CheckCircle2 className="h-6 w-6" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {todo.completed ? "Reopen Task?" : "Complete Task?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {todo.completed 
+                        ? "This will reopen the task. If this task has an associated expense, it will be marked as unpaid."
+                        : "This will mark the task as completed. If this task has an associated expense, it will be marked as paid."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => toggleMutation.mutate(todo)}>
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
               <div className="flex-1">
-                <div className="font-medium">{todo.title}</div>
+                <div className={`font-medium ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+                  {todo.title}
+                </div>
                 {todo.description && (
                   <div className="text-sm text-muted-foreground">
                     {todo.description}
@@ -119,6 +161,7 @@ export default function TodoList({ todos }: TodoListProps) {
                   </div>
                 )}
               </div>
+
               <div className="flex items-center gap-2">
                 {todo.hasAssociatedExpense === 1 && (
                   <Badge variant="secondary" className="flex items-center gap-1">
@@ -136,13 +179,30 @@ export default function TodoList({ todos }: TodoListProps) {
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(todo.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Task?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the task. If this task has an associated expense, it will also be deleted.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteMutation.mutate(todo.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           ))}

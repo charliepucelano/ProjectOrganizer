@@ -12,11 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: () => void }) {
@@ -96,13 +91,13 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       if (onCancel) onCancel();
       toast({
         title: "Success",
-        description: todo ? "Todo updated successfully" : "Todo created successfully"
+        description: todo ? "Task updated successfully" : "Task created successfully"
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to save todo",
+        description: error.message || "Failed to save task",
         variant: "destructive"
       });
     }
@@ -111,14 +106,13 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest("POST", "/api/categories", { name });
-      const newCategory = await response.json();
-      return newCategory.name; //return the name of the newly created category
-
+      const category = await response.json();
+      return category.name;
     },
-    onSuccess: (_, newCategory) => {
+    onSuccess: (newCategoryName) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       // Auto-select the newly created category
-      form.setValue("category", newCategory);
+      form.setValue("category", newCategoryName);
       setIsAddingCategory(false);
       setCategoryName("");
       toast({
@@ -127,12 +121,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       });
     }
   });
-
-  const hasExpense = form.watch("hasAssociatedExpense");
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [tempDate, setTempDate] = useState<Date | undefined>(
-    form.getValues("dueDate") ? new Date(form.getValues("dueDate")) : undefined
-  );
 
   const handleCategorySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,7 +200,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setIsAddingCategory(true);
                       }}
                     >
                       +
@@ -258,62 +245,17 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           render={({ field }) => (
             <FormItem>
               <FormLabel>Due Date</FormLabel>
-              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(new Date(field.value), "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3 border-b">
-                    <Calendar
-                      mode="single"
-                      selected={tempDate}
-                      onSelect={setTempDate}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                    <div className="flex justify-end gap-2 mt-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setIsDatePickerOpen(false);
-                          setTempDate(undefined);
-                          field.onChange(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          if (tempDate) {
-                            field.onChange(tempDate.toISOString());
-                          }
-                          setIsDatePickerOpen(false);
-                        }}
-                      >
-                        OK
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <FormControl>
+                <Input
+                  type="date"
+                  {...field}
+                  value={field.value ? field.value.split('T')[0] : ''}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    field.onChange(date ? new Date(date).toISOString() : null);
+                  }}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -338,7 +280,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           )}
         />
 
-        {hasExpense === 1 && (
+        {form.watch("hasAssociatedExpense") === 1 && (
           <FormField
             control={form.control}
             name="estimatedAmount"
@@ -380,7 +322,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
         <div className="flex gap-2">
           <Button type="submit" className="flex-1" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : (todo ? "Update" : "Add")} Todo
+            {isSubmitting ? "Saving..." : (todo ? "Update" : "Add")} Task
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
