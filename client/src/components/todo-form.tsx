@@ -70,7 +70,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             description: values.title,
             amount: values.estimatedAmount,
             category: values.category,
-            date: new Date().toISOString(),
+            date: values.dueDate || new Date().toISOString(),
             todoId: todoData.id,
             isBudget: 1,
             completedAt: null
@@ -106,13 +106,13 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest("POST", "/api/categories", { name });
-      const category = await response.json();
-      return category.name;
+      const data = await response.json();
+      return data.name;
     },
-    onSuccess: (newCategoryName) => {
+    onSuccess: (categoryName) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       // Auto-select the newly created category
-      form.setValue("category", newCategoryName);
+      form.setValue("category", categoryName, { shouldValidate: true });
       setIsAddingCategory(false);
       setCategoryName("");
       toast({
@@ -206,7 +206,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                       +
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent onClick={(e) => e.stopPropagation()}>
                     <DialogHeader>
                       <DialogTitle>Create New Category</DialogTitle>
                     </DialogHeader>
@@ -264,6 +264,25 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
         <FormField
           control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center gap-2">
+                <FormLabel>High Priority</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value === 1}
+                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
+                  />
+                </FormControl>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="hasAssociatedExpense"
           render={({ field }) => (
             <FormItem>
@@ -301,25 +320,6 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             )}
           />
         )}
-
-        <FormField
-          control={form.control}
-          name="priority"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center gap-2">
-                <FormLabel>High Priority</FormLabel>
-                <FormControl>
-                  <Switch
-                    checked={field.value === 1}
-                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
-                  />
-                </FormControl>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <div className="flex gap-2">
           <Button type="submit" className="flex-1" disabled={isSubmitting}>

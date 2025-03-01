@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Todo } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Trash2, DollarSign, Pencil, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Trash2, DollarSign, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { format, isWithinInterval, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { format, addDays, startOfToday, isBefore, isAfter } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TodoForm from "./todo-form";
@@ -17,67 +17,83 @@ interface TodoListProps {
   todos: Todo[];
 }
 
-type SortOption = "dueDate" | "priority" | "category";
-type FilterOption = "all" | "completed" | "incomplete" | "withExpense" | "withoutExpense";
+type FilterOption = "all" | "completed" | "incomplete" | "category";
 
 export default function TodoList({ todos }: TodoListProps) {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>("dueDate");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [showPriority, setShowPriority] = useState(true);
   const { toast } = useToast();
 
-  // Group and sort todos
+  const { data: categories } = useQuery({
+    queryKey: ["/api/categories"]
+  });
+
+  // Calculate task statistics and organize todos
   const organizedTodos = useMemo(() => {
-    // First apply filters
     let filteredTodos = [...todos];
-    switch (filterBy) {
-      case "completed":
-        filteredTodos = filteredTodos.filter(t => t.completed);
-        break;
-      case "incomplete":
-        filteredTodos = filteredTodos.filter(t => !t.completed);
-        break;
-      case "withExpense":
-        filteredTodos = filteredTodos.filter(t => t.hasAssociatedExpense);
-        break;
-      case "withoutExpense":
-        filteredTodos = filteredTodos.filter(t => !t.hasAssociatedExpense);
-        break;
+    const today = startOfToday();
+    const nextWeek = addDays(today, 7);
+
+    // Apply filters
+    if (filterBy === "completed") {
+      filteredTodos = filteredTodos.filter(t => t.completed);
+    } else if (filterBy === "incomplete") {
+      filteredTodos = filteredTodos.filter(t => !t.completed);
     }
 
-    // Then sort
-    filteredTodos.sort((a, b) => {
-      switch (sortBy) {
-        case "dueDate":
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        case "priority":
-          return b.priority - a.priority;
-        case "category":
-          return a.category.localeCompare(b.category);
-        default:
-          return 0;
-      }
-    });
+    if (selectedCategory !== "all") {
+      filteredTodos = filteredTodos.filter(t => t.category === selectedCategory);
+    }
 
-    // Group by due date status
-    const now = new Date();
-    const weekStart = startOfWeek(now);
-    const weekEnd = endOfWeek(now);
+    // Calculate statistics
+    const totalOpen = filteredTodos.filter(t => !t.completed).length;
+    const totalCompleted = filteredTodos.filter(t => t.completed).length;
+    const dueSoon = filteredTodos.filter(t => 
+      t.dueDate && 
+      !t.completed &&
+      isAfter(new Date(t.dueDate), today) && 
+      isBefore(new Date(t.dueDate), nextWeek)
+    ).length;
+
+    // Organize todos by priority and date
+    const highPriority = filteredTodos.filter(t => t.priority && !t.completed);
+    const nextSevenDays = filteredTodos.filter(t => 
+      !t.completed &&
+      !t.priority &&
+      t.dueDate &&
+      isAfter(new Date(t.dueDate), today) && 
+      isBefore(new Date(t.dueDate), nextWeek)
+    );
+    const otherOpen = filteredTodos.filter(t => 
+      !t.completed && 
+      !t.priority && 
+      (!t.dueDate || isAfter(new Date(t.dueDate), nextWeek))
+    );
+    const completed = filteredTodos.filter(t => t.completed);
+
+    // Sort each group by due date
+    const sortByDueDate = (a: Todo, b: Todo) => {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    };
 
     return {
-      thisWeek: filteredTodos.filter(todo => 
-        todo.dueDate && 
-        isWithinInterval(new Date(todo.dueDate), { start: weekStart, end: weekEnd })
-      ),
-      otherDates: filteredTodos.filter(todo => 
-        todo.dueDate && 
-        !isWithinInterval(new Date(todo.dueDate), { start: weekStart, end: weekEnd })
-      ),
-      noDueDate: filteredTodos.filter(todo => !todo.dueDate)
+      stats: {
+        open: totalOpen,
+        completed: totalCompleted,
+        dueSoon
+      },
+      todos: {
+        highPriority: highPriority.sort(sortByDueDate),
+        nextSevenDays: nextSevenDays.sort(sortByDueDate),
+        otherOpen: otherOpen.sort(sortByDueDate),
+        completed: completed.sort(sortByDueDate)
+      }
     };
-  }, [todos, sortBy, filterBy]);
+  }, [todos, filterBy, selectedCategory]);
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
@@ -88,7 +104,6 @@ export default function TodoList({ todos }: TodoListProps) {
         { completed }
       );
 
-      // If the todo has an associated expense
       if (todo.hasAssociatedExpense) {
         const response = await apiRequest("GET", `/api/expenses`);
         const expenses = await response.json();
@@ -120,7 +135,6 @@ export default function TodoList({ todos }: TodoListProps) {
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/todos/${id}`);
 
-      // Delete associated expense if exists
       const response = await apiRequest("GET", `/api/expenses`);
       const expenses = await response.json();
       const expense = expenses.find((e: any) => e.todoId === id);
@@ -137,22 +151,6 @@ export default function TodoList({ todos }: TodoListProps) {
       });
     }
   });
-
-  if (editingTodo) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Edit Task</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TodoForm 
-            todo={editingTodo} 
-            onCancel={() => setEditingTodo(null)} 
-          />
-        </CardContent>
-      </Card>
-    );
-  }
 
   const renderTodo = (todo: Todo) => (
     <div
@@ -259,21 +257,60 @@ export default function TodoList({ todos }: TodoListProps) {
     </div>
   );
 
+  if (editingTodo) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Task</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TodoForm 
+            todo={editingTodo} 
+            onCancel={() => setEditingTodo(null)} 
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const allCategories = [
+    "all",
+    ...(categories?.map(c => c.name) || [])
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dueDate">Sort by Due Date</SelectItem>
-              <SelectItem value="priority">Sort by Priority</SelectItem>
-              <SelectItem value="category">Sort by Category</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Open Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{organizedTodos.stats.open}</div>
+          </CardContent>
+        </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{organizedTodos.stats.completed}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Due in 7 Days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{organizedTodos.stats.dueSoon}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <Select value={filterBy} onValueChange={(value: FilterOption) => setFilterBy(value)}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filter by..." />
@@ -282,61 +319,81 @@ export default function TodoList({ todos }: TodoListProps) {
               <SelectItem value="all">All Tasks</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="incomplete">Incomplete</SelectItem>
-              <SelectItem value="withExpense">With Expense</SelectItem>
-              <SelectItem value="withoutExpense">Without Expense</SelectItem>
+              <SelectItem value="category">By Category</SelectItem>
             </SelectContent>
           </Select>
+
+          {filterBy === "category" && (
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allCategories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category === "all" ? "All Categories" : category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        {organizedTodos.noDueDate.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const element = document.getElementById('no-due-date');
-              element?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            <AlertCircle className="mr-2 h-4 w-4" />
-            {organizedTodos.noDueDate.length} tasks need dates
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          onClick={() => setShowPriority(!showPriority)}
+        >
+          {showPriority ? "Hide" : "Show"} Priority Tasks
+        </Button>
       </div>
 
-      {organizedTodos.thisWeek.length > 0 && (
-        <Card>
+      {showPriority && organizedTodos.todos.highPriority.length > 0 && (
+        <Card className="border-red-200">
           <CardHeader>
-            <CardTitle>This Week's Tasks</CardTitle>
+            <CardTitle className="text-red-600">High Priority Tasks</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {organizedTodos.thisWeek.map(renderTodo)}
+              {organizedTodos.todos.highPriority.map(renderTodo)}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {organizedTodos.otherDates.length > 0 && (
+      {organizedTodos.todos.nextSevenDays.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Other Scheduled Tasks</CardTitle>
+            <CardTitle>Due in Next 7 Days</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {organizedTodos.otherDates.map(renderTodo)}
+              {organizedTodos.todos.nextSevenDays.map(renderTodo)}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {organizedTodos.noDueDate.length > 0 && (
-        <Card id="no-due-date">
+      {organizedTodos.todos.otherOpen.length > 0 && (
+        <Card>
           <CardHeader>
-            <CardTitle>Tasks Without Due Date</CardTitle>
+            <CardTitle>Other Open Tasks</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {organizedTodos.noDueDate.map(renderTodo)}
+              {organizedTodos.todos.otherOpen.map(renderTodo)}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {organizedTodos.todos.completed.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {organizedTodos.todos.completed.map(renderTodo)}
             </div>
           </CardContent>
         </Card>
