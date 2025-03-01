@@ -1,15 +1,23 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTodoSchema, insertExpenseSchema, defaultTodoCategories } from "@shared/schema";
+import {
+  insertTodoSchema,
+  insertExpenseSchema,
+  defaultTodoCategories,
+} from "@shared/schema";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
 import { requireAuth } from "./auth";
-import { getAuthUrl, setCredentials, createCalendarEvent } from './services/calendar';
+import {
+  getAuthUrl,
+  setCredentials,
+  createCalendarEvent,
+} from "./services/calendar";
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   /**
    * @swagger
@@ -60,11 +68,15 @@ export async function registerRoutes(app: Express) {
    */
   app.post("/api/categories", async (req, res) => {
     const { name } = req.body;
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
       return res.status(400).json({ error: "Category name is required" });
     }
     const trimmedName = name.trim();
-    if (defaultTodoCategories.some(c => c.toLowerCase() === trimmedName.toLowerCase())) {
+    if (
+      defaultTodoCategories.some(
+        (c) => c.toLowerCase() === trimmedName.toLowerCase(),
+      )
+    ) {
       return res.status(400).json({ error: "Category already exists" });
     }
     (defaultTodoCategories as string[]).push(trimmedName);
@@ -96,10 +108,12 @@ export async function registerRoutes(app: Express) {
   app.delete("/api/categories/:name", async (req, res) => {
     const categoryName = decodeURIComponent(req.params.name);
     if (categoryName === "Unassigned") {
-      return res.status(400).json({ error: "Cannot delete the Unassigned category" });
+      return res
+        .status(400)
+        .json({ error: "Cannot delete the Unassigned category" });
     }
     const categoryIndex = defaultTodoCategories.findIndex(
-      c => c.toLowerCase() === categoryName.toLowerCase()
+      (c) => c.toLowerCase() === categoryName.toLowerCase(),
     );
     if (categoryIndex === -1) {
       return res.status(404).json({ error: "Category not found" });
@@ -110,7 +124,7 @@ export async function registerRoutes(app: Express) {
         if (todo.category.toLowerCase() === categoryName.toLowerCase()) {
           await storage.updateTodo(todo.id, {
             ...todo,
-            category: "Unassigned"
+            category: "Unassigned",
           });
         }
       }
@@ -119,14 +133,14 @@ export async function registerRoutes(app: Express) {
         if (expense.category.toLowerCase() === categoryName.toLowerCase()) {
           await storage.updateExpense(expense.id, {
             ...expense,
-            category: "Other"
+            category: "Other",
           });
         }
       }
       (defaultTodoCategories as string[]).splice(categoryIndex, 1);
       res.status(200).json({ message: "Category deleted successfully" });
     } catch (error) {
-      console.error('Error deleting category:', error);
+      console.error("Error deleting category:", error);
       res.status(500).json({ error: "Failed to delete category" });
     }
   });
@@ -386,8 +400,8 @@ export async function registerRoutes(app: Express) {
    *       302:
    *         description: Redirects to Google OAuth consent screen
    */
-  app.get("/api/auth/google", requireAuth, (_req, res) => {
-    console.log('Starting Google Calendar OAuth flow');
+  app.get("/api/auth/google", (_req, res) => {
+    console.log("Starting Google Calendar OAuth flow");
     const authUrl = getAuthUrl();
     res.redirect(authUrl);
   });
@@ -410,33 +424,35 @@ export async function registerRoutes(app: Express) {
    *       302:
    *         description: Redirects back to application
    */
-  app.get("/api/auth/google/callback", requireAuth, async (req, res) => {
+  app.get("/api/auth/google/callback", async (req, res) => {
     try {
-      console.log('Received Google OAuth callback');
+      console.log("Received Google OAuth callback");
       const code = req.query.code as string;
       if (!code) {
-        console.log('No authorization code received from Google');
+        console.log("No authorization code received from Google");
         return res.redirect("/?error=google_auth_cancelled");
       }
 
       try {
-        console.log('Attempting to exchange authorization code for tokens');
+        console.log("Attempting to exchange authorization code for tokens");
         const tokens = await setCredentials(code);
 
         if (req.user) {
-          console.log('Updating user with Google Calendar tokens');
+          console.log("Updating user with Google Calendar tokens");
           await storage.updateUser(req.user.id, {
             googleAccessToken: tokens.access_token,
             googleRefreshToken: tokens.refresh_token,
           });
-          console.log('Successfully updated user with Google Calendar tokens');
+          console.log("Successfully updated user with Google Calendar tokens");
         }
 
         res.redirect("/");
       } catch (error: any) {
         console.error("Google OAuth callback error:", error);
         console.error("Error details:", error.response?.data || error.message);
-        const errorMessage = encodeURIComponent((error as Error).message || 'Failed to connect to Google Calendar');
+        const errorMessage = encodeURIComponent(
+          (error as Error).message || "Failed to connect to Google Calendar",
+        );
         res.redirect(`/?error=${errorMessage}`);
       }
     } catch (error) {
@@ -444,7 +460,6 @@ export async function registerRoutes(app: Express) {
       res.redirect("/?error=google_auth_failed");
     }
   });
-
 
   return createServer(app);
 }

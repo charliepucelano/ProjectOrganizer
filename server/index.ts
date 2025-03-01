@@ -11,15 +11,15 @@ app.use(express.urlencoded({ extended: false }));
 setupAuth(app);
 
 // Create initial user
-createInitialUser().catch(err => {
+createInitialUser().catch((err) => {
   console.error("Failed to create initial user:", err);
 });
 
 // Verify Google OAuth credentials
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.error('ERROR: Missing required Google OAuth credentials');
+  console.error("ERROR: Missing required Google OAuth credentials");
 } else {
-  console.log('Google OAuth credentials found');
+  console.log("Google OAuth credentials found");
 }
 
 // Logging middleware
@@ -56,9 +56,10 @@ app.use((req, res, next) => {
 // Protect all API routes and API docs except auth-related ones
 app.use(["/api", "/api-docs"], (req, res, next) => {
   if (
-    req.path.startsWith("/api/login") || 
-    req.path.startsWith("/api/logout") || 
-    req.path.startsWith("/api/user")
+    req.path.startsWith("/api/login") ||
+    req.path.startsWith("/api/logout") ||
+    req.path.startsWith("/api/user") ||
+    req.path.startsWith("/api/auth")
   ) {
     return next();
   }
@@ -85,30 +86,33 @@ app.use(["/api", "/api-docs"], (req, res, next) => {
   // Try to serve the app on port 5000, fall back to other ports if needed
   const tryPort = (port: number): Promise<number> => {
     return new Promise((resolve, reject) => {
-      server.listen({
-        port,
-        host: "0.0.0.0",
-        reusePort: true,
-      })
-      .on('listening', () => {
-        log(`serving on port ${port}`);
-        resolve(port);
-      })
-      .on('error', (err: any) => {
-        if (err.code === 'EADDRINUSE') {
-          log(`Port ${port} is busy, trying ${port + 1}...`);
-          server.close();
-          // Try the next port
-          tryPort(port + 1).then(resolve).catch(reject);
-        } else {
-          reject(err);
-        }
-      });
+      server
+        .listen({
+          port,
+          host: "0.0.0.0",
+          reusePort: true,
+        })
+        .on("listening", () => {
+          log(`serving on port ${port}`);
+          resolve(port);
+        })
+        .on("error", (err: any) => {
+          if (err.code === "EADDRINUSE") {
+            log(`Port ${port} is busy, trying ${port + 1}...`);
+            server.close();
+            // Try the next port
+            tryPort(port + 1)
+              .then(resolve)
+              .catch(reject);
+          } else {
+            reject(err);
+          }
+        });
     });
   };
 
   // Start with port 5000 and try alternatives if needed
-  tryPort(5000).catch(err => {
+  tryPort(5000).catch((err) => {
     log(`Failed to start server: ${err.message}`);
     process.exit(1);
   });
