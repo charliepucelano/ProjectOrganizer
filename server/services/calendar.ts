@@ -2,9 +2,7 @@ import { google } from "googleapis";
 import { Todo } from "@shared/schema";
 
 // Get the host from environment or use the Replit domain
-const host = process.env.REPL_SLUG ? 
-  `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
-  'http://localhost:5000';
+const host = 'https://913ab86d-d70d-412c-9bf2-4971d8e3a307-00-3r1iwxlz01r7b.janeway.replit.dev';
 
 // Log OAuth2 client configuration (without exposing secrets)
 console.log(
