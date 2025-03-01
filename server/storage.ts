@@ -1,4 +1,8 @@
-import { Todo, InsertTodo, Expense, InsertExpense, CustomCategory, InsertCustomCategory } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
+
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   // Todos
@@ -13,29 +17,45 @@ export interface IStorage {
   updateExpense(id: number, expense: Partial<Expense>): Promise<Expense>;
   deleteExpense(id: number): Promise<void>;
 
+  // Users
+  getUser(id: number): Promise<User>;
+  getUserByUsername(username: string): Promise<User | null>;
+  createUser(user: InsertUser): Promise<User>;
+
   // Categories
   getCustomCategories(): Promise<CustomCategory[]>;
   createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
   updateCustomCategory(id: number, data: InsertCustomCategory): Promise<CustomCategory>;
   deleteCustomCategory(id: number): Promise<void>;
   updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void>;
+
+  // Session store
+  sessionStore: session.Store;
 }
 
 export class MemStorage implements IStorage {
   private todos: Map<number, Todo>;
   private expenses: Map<number, Expense>;
+  private users: Map<number, User>;
   private categories: Map<number, CustomCategory>;
   private todoId: number;
   private expenseId: number;
+  private userId: number;
   private categoryId: number;
+  readonly sessionStore: session.Store;
 
   constructor() {
     this.todos = new Map();
     this.expenses = new Map();
+    this.users = new Map();
     this.categories = new Map();
     this.todoId = 1;
     this.expenseId = 1;
+    this.userId = 1;
     this.categoryId = 1;
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // 24 hours
+    });
 
     // Initialize with predefined categories
     this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Financial Obligations" });
@@ -44,7 +64,29 @@ export class MemStorage implements IStorage {
     this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Improvements" });
     this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Furniture" });
     this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Unassigned" });
+  }
 
+
+  async getUser(id: number): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | null> {
+    for (const user of this.users.values()) {
+      if (user.username.toLowerCase() === username.toLowerCase()) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const id = this.userId++;
+    const newUser = { ...user, id };
+    this.users.set(id, newUser);
+    return newUser;
   }
 
   async getTodos(): Promise<Todo[]> {
@@ -57,8 +99,8 @@ export class MemStorage implements IStorage {
       ...todo,
       id,
       description: todo.description || null,
-      category: todo.category || "Unassigned", // Ensure category is set
-      dueDate: todo.dueDate || null,
+      category: todo.category || "Unassigned",
+      dueDate: todo.dueDate ? new Date(todo.dueDate) : null,
       estimatedAmount: todo.estimatedAmount || null,
       completed: todo.completed || 0,
       priority: todo.priority || 0,
@@ -90,8 +132,9 @@ export class MemStorage implements IStorage {
     const newExpense = { 
       ...expense,
       id,
+      date: new Date(expense.date),
       todoId: expense.todoId || null,
-      completedAt: expense.completedAt || null,
+      completedAt: expense.completedAt ? new Date(expense.completedAt) : null,
       isBudget: expense.isBudget || 0
     };
     this.expenses.set(id, newExpense);
@@ -140,13 +183,13 @@ export class MemStorage implements IStorage {
 
   }
 
-    private reassignTodos(oldCategory: string, newCategory: string): void{
-        for (const [key, value] of this.todos) {
-            if(value.category === oldCategory){
-                this.updateTodo(key, {category: newCategory});
-            }
-        }
-    }
+  private reassignTodos(oldCategory: string, newCategory: string): void{
+      for (const [key, value] of this.todos) {
+          if(value.category === oldCategory){
+              this.updateTodo(key, {category: newCategory});
+          }
+      }
+  }
 
   async updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void> {
     for (const [id, todo] of this.todos) {

@@ -21,6 +21,12 @@ export const defaultExpenseCategories = [
   "Other"
 ] as const;
 
+// Add user schema
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull(),
+  password: text("password").notNull(),
+});
 
 export const todos = pgTable("todos", {
   id: serial("id").primaryKey(),
@@ -68,7 +74,15 @@ export const insertExpenseSchema = z.object({
   completedAt: z.string().nullable(),
 });
 
+// Add user validation schema
+export const insertUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;

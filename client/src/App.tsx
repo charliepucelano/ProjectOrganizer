@@ -6,6 +6,9 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Budget from "@/pages/budget";
 import Categories from "@/pages/categories";
+import AuthPage from "@/pages/auth";
+import { ProtectedRoute } from "@/lib/protected-route";
+import { AuthProvider } from "@/hooks/use-auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocation } from "wouter";
 
@@ -30,9 +33,10 @@ function Navigation() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/budget" component={Budget} />
-      <Route path="/categories" component={Categories} />
+      <Route path="/auth" component={AuthPage} />
+      <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/budget" component={Budget} />
+      <ProtectedRoute path="/categories" component={Categories} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -41,13 +45,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <main className="container mx-auto py-6">
-          <Router />
-        </main>
-      </div>
-      <Toaster />
+      <AuthProvider>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <main className="container mx-auto py-6">
+            <Router />
+          </main>
+        </div>
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
