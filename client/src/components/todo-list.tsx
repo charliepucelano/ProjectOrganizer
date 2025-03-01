@@ -273,9 +273,12 @@ export default function TodoList({ todos }: TodoListProps) {
     );
   }
 
+  const defaultTodoCategories = ["Work", "Personal", "Errands"]; //added default categories
+
   const allCategories = [
     "all",
-    ...(categories?.map(c => c.name) || [])
+    ...defaultTodoCategories,
+    ...(categories?.filter(c => !defaultTodoCategories.includes(c)) || [])
   ];
 
   return (

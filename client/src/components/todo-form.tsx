@@ -106,18 +106,34 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest("POST", "/api/categories", { name });
-      const data = await response.json();
-      return data.name;
+      return response;
     },
-    onSuccess: (categoryName) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      // Auto-select the newly created category
-      form.setValue("category", categoryName, { shouldValidate: true });
-      setIsAddingCategory(false);
-      setCategoryName("");
+    onSuccess: async (response) => {
+      try {
+        const data = await response.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+        // Auto-select the newly created category
+        form.setValue("category", data.name);
+        setIsAddingCategory(false);
+        setCategoryName("");
+        toast({
+          title: "Success",
+          description: "Category created successfully"
+        });
+      } catch (error) {
+        console.error("Error processing category response:", error);
+        toast({
+          title: "Error",
+          description: "Failed to create category",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: any) => {
       toast({
-        title: "Success",
-        description: "Category created successfully"
+        title: "Error",
+        description: error.message || "Failed to create category",
+        variant: "destructive"
       });
     }
   });

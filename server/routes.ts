@@ -1,13 +1,15 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertTodoSchema, insertExpenseSchema, insertCustomCategorySchema } from "@shared/schema";
+import { insertTodoSchema, insertExpenseSchema, insertCustomCategorySchema, defaultTodoCategories } from "@shared/schema";
 
 export async function registerRoutes(app: Express) {
   // Custom Categories
   app.get("/api/categories", async (_req, res) => {
-    const categories = await storage.getCustomCategories();
-    res.json(categories);
+    const customCategories = await storage.getCustomCategories();
+    // Combine default and custom categories
+    const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
+    res.json(allCategories);
   });
 
   app.post("/api/categories", async (req, res) => {
@@ -15,6 +17,19 @@ export async function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error });
     }
+
+    // Check if category already exists (case insensitive)
+    const customCategories = await storage.getCustomCategories();
+    const categoryExists = customCategories.some(
+      c => c.name.toLowerCase() === parsed.data.name.toLowerCase()
+    ) || defaultTodoCategories.some(
+      c => c.toLowerCase() === parsed.data.name.toLowerCase()
+    );
+
+    if (categoryExists) {
+      return res.status(400).json({ error: "Category already exists" });
+    }
+
     const category = await storage.createCustomCategory(parsed.data);
     res.json(category);
   });
