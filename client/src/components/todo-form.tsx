@@ -31,10 +31,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
 
-  const todoCategories = [
-    "Unassigned",
-    ...(categories?.map(c => c.name) || [])
-  ];
+  // Categories come directly as string array from API
+  const todoCategories = categories || [];
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -200,7 +198,11 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
             <FormItem>
               <FormLabel>Category</FormLabel>
               <div className="flex gap-2">
-                <Select onValueChange={field.onChange} value={field.value || "Unassigned"} defaultValue="Unassigned">
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value} 
+                  defaultValue="Unassigned"
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
