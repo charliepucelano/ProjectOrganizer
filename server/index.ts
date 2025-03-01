@@ -15,6 +15,13 @@ createInitialUser().catch(err => {
   console.error("Failed to create initial user:", err);
 });
 
+// Verify Google OAuth credentials
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.error('ERROR: Missing required Google OAuth credentials');
+} else {
+  console.log('Google OAuth credentials found');
+}
+
 // Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
