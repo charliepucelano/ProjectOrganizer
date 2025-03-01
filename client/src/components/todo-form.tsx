@@ -27,6 +27,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const todoCategories = [
     ...defaultTodoCategories,
@@ -43,27 +44,36 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       completed: 0,
       dueDate: null,
       hasAssociatedExpense: 0,
-      estimatedAmount: 0
+      estimatedAmount: null
     }
   });
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
-      const method = todo ? "PATCH" : "POST";
+      try {
+        setIsSubmitting(true);
+        const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
+        const method = todo ? "PATCH" : "POST";
 
-      const todoResponse = await apiRequest(method, endpoint, values);
-      const todoData = await todoResponse.json();
+        const todoResponse = await apiRequest(method, endpoint, values);
+        const todoData = await todoResponse.json();
 
-      if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
-        await apiRequest("POST", "/api/expenses", {
-          description: values.title,
-          amount: values.estimatedAmount,
-          category: values.category,
-          date: values.dueDate || new Date().toISOString(),
-          todoId: todoData.id,
-          isBudget: 1
-        });
+        if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
+          await apiRequest("POST", "/api/expenses", {
+            description: values.title,
+            amount: values.estimatedAmount,
+            category: values.category,
+            date: values.dueDate || new Date().toISOString(),
+            todoId: todoData.id,
+            isBudget: 1
+          });
+        }
+        return todoData;
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        throw error;
+      } finally {
+        setIsSubmitting(false);
       }
     },
     onSuccess: () => {
@@ -74,6 +84,13 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       toast({
         title: "Success",
         description: todo ? "Todo updated successfully" : "Todo created successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save todo",
+        variant: "destructive"
       });
     }
   });
@@ -107,9 +124,14 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     }
   };
 
+  const onSubmit = async (data: any) => {
+    if (isSubmitting) return;
+    await mutation.mutateAsync(data);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
@@ -301,7 +323,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
                     type="number"
                     step="0.01"
                     onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                    value={field.value}
+                    value={field.value || ''}
                   />
                 </FormControl>
               </FormItem>
@@ -328,8 +350,8 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
         />
 
         <div className="flex gap-2">
-          <Button type="submit" className="flex-1">
-            {todo ? "Update" : "Add"} Todo
+          <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : (todo ? "Update" : "Add")} Todo
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
