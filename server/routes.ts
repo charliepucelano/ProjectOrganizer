@@ -8,7 +8,7 @@ export async function registerRoutes(app: Express) {
   app.get("/api/categories", async (_req, res) => {
     const customCategories = await storage.getCustomCategories();
     // Combine default and custom categories
-    const allCategories = [...defaultTodoCategories, ...customCategories.map(c => c.name)];
+    const allCategories = [...customCategories.map(c => c.name)];
     res.json(allCategories);
   });
 

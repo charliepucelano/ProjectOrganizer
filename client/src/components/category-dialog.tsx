@@ -122,14 +122,14 @@ export default function CategoryDialog() {
               </CardContent>
             </Card>
             
-            {/* Default categories */}
+            {/* All categories */}
             <Card>
               <CardHeader>
-                <CardTitle>Default Categories</CardTitle>
+                <CardTitle>All Categories</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {defaultTodoCategories.map((category) => (
+                  {storage.defaultCategories?.map((category) => (
                     <Badge key={category} variant="secondary">{category}</Badge>
                   ))}
                 </div>
