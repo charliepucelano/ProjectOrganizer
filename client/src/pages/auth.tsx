@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -5,6 +6,7 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,14 @@ const loginSchema = z.object({
 export default function AuthPage() {
   const [_, navigate] = useLocation();
   const { toast } = useToast();
+  const { user, isLoading } = useAuth();
+
+  // Redirect to home if already logged in
+  useEffect(() => {
+    if (user && !isLoading) {
+      navigate("/");
+    }
+  }, [user, isLoading, navigate]);
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -42,7 +52,8 @@ export default function AuthPage() {
         title: "Success",
         description: "Logged in successfully",
       });
-      navigate("/"); // Redirect to Tasks view after successful login
+      // Force navigation after a short delay to ensure state updates
+      setTimeout(() => navigate("/"), 100);
     },
     onError: (error: Error) => {
       toast({
@@ -52,6 +63,14 @@ export default function AuthPage() {
       });
     },
   });
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center">
