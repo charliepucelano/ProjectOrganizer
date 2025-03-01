@@ -49,14 +49,31 @@ export function setupAuth(app: Express) {
       checkPeriod: 86400000 // prune expired entries every 24h
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // set to true in production with HTTPS
+      httpOnly: true,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+    },
+    name: 'session' // custom name to avoid default 'connect.sid'
   };
+
+  // Enable trust proxy if you're behind a reverse proxy (like on Replit)
+  app.set('trust proxy', 1);
 
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Debug middleware to log session info
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    console.log('Session debug:', {
+      id: req.sessionID,
+      cookie: req.session.cookie,
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user
+    });
+    next();
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {

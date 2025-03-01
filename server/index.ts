@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Setup authentication
+// Setup authentication first
 setupAuth(app);
 
 // Create initial user
@@ -22,48 +22,39 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.log("Google OAuth credentials found");
 }
 
-// Logging middleware
+// List of public routes that don't require authentication
+const publicRoutes = [
+  '/api/login',
+  '/api/logout',
+  '/api/user',
+  '/api/auth/google/callback',
+  '/api/auth/google'
+];
+
+// Authentication middleware for protected routes
 app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+  // Skip auth check for public routes
+  if (publicRoutes.some(route => req.originalUrl.startsWith(route))) {
+    console.log('Public route accessed:', req.originalUrl);
+    if (req.originalUrl.startsWith('/api/auth/google/callback')) {
+      console.log('Google callback debug info:', {
+        session: req.session,
+        isAuthenticated: req.isAuthenticated(),
+        user: req.user,
+        cookies: req.cookies
+      });
     }
-  });
-
-  next();
-});
-
-// Protect all API routes and API docs except auth-related ones
-app.use(["/api", "/api-docs"], (req, res, next) => {
-  if (
-    req.path.startsWith("/api/login") ||
-    req.path.startsWith("/api/logout") ||
-    req.path.startsWith("/api/user") ||
-    req.path.startsWith("/api/auth")
-  ) {
     return next();
   }
-  requireAuth(req, res, next);
+
+  // Only require auth for API routes
+  if (req.originalUrl.startsWith('/api')) {
+    console.log('Protected route accessed:', req.originalUrl);
+    return requireAuth(req, res, next);
+  }
+
+  // Non-API routes don't require auth
+  next();
 });
 
 (async () => {
