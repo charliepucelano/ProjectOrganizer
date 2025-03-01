@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Todo } from "@shared/schema";
+import { Todo, defaultTodoCategories } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Trash2, DollarSign, Pencil, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -26,7 +26,7 @@ export default function TodoList({ todos }: TodoListProps) {
   const [showPriority, setShowPriority] = useState(true);
   const { toast } = useToast();
 
-  const { data: categories } = useQuery({
+  const { data: categories = [] } = useQuery({
     queryKey: ["/api/categories"]
   });
 
@@ -265,7 +265,10 @@ export default function TodoList({ todos }: TodoListProps) {
         </CardHeader>
         <CardContent>
           <TodoForm 
-            todo={editingTodo} 
+            todo={{
+              ...editingTodo,
+              dueDate: editingTodo.dueDate ? new Date(editingTodo.dueDate).toISOString() : null
+            }}
             onCancel={() => setEditingTodo(null)} 
           />
         </CardContent>
@@ -273,17 +276,8 @@ export default function TodoList({ todos }: TodoListProps) {
     );
   }
 
-  // Query for categories and refresh when needed
-  const { data: categoryList, refetch: refetchCategories } = useQuery({
-    queryKey: ["/api/categories"],
-    refetchOnWindowFocus: true,
-    refetchInterval: 3000 // Refresh every 3 seconds
-  });
-
-  const allCategories = [
-    "all",
-    ...(categoryList || [])
-  ];
+  // Combine default and custom categories for filtering
+  const allCategories = ["all", ...defaultTodoCategories, ...(categories || [])];
 
   return (
     <div className="space-y-6">

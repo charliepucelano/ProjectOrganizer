@@ -1,24 +1,18 @@
-
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
-import { insertTodoSchema } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
+import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface TodoFormProps {
   todo?: any;
@@ -27,52 +21,52 @@ interface TodoFormProps {
 
 export default function TodoForm({ todo, onCancel }: TodoFormProps) {
   const { toast } = useToast();
-  const { data: categories } = useQuery({
-    queryKey: ["/api/categories"],
-    refetchOnWindowFocus: true
-  });
-
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newlyAddedCategory, setNewlyAddedCategory] = useState<string | null>(null);
 
-  // Use categories from API or empty array if not loaded yet
-  const todoCategories = categories || [];
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ["/api/categories"]
+  });
+
+  // Get all categories (default + custom)
+  const allCategories = [...defaultTodoCategories, ...customCategories];
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
     defaultValues: todo || {
       title: "",
       description: "",
-      category: "Unassigned", // Set Unassigned as default
-      priority: 0,
+      category: "Unassigned",
       completed: 0,
       dueDate: null,
+      priority: 0,
       hasAssociatedExpense: 0,
       estimatedAmount: null
     }
   });
 
-  // Effect to select newly added category when it becomes available
-  useEffect(() => {
-    if (newlyAddedCategory && categories?.includes(newlyAddedCategory)) {
-      form.setValue("category", newlyAddedCategory);
-      setNewlyAddedCategory(null);
-    }
-  }, [categories, newlyAddedCategory, form]);
-
-  // Declare all hooks at the top level before any conditional returns
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      setIsSubmitting(true);
       try {
-        const method = todo ? "PATCH" : "POST";
+        setIsSubmitting(true);
+        console.log('Submitting todo with values:', values);
+
         const endpoint = todo ? `/api/todos/${todo.id}` : "/api/todos";
-        
-        const todoData = await apiRequest(method, endpoint, values);
-        
-        // If has associated expense, create that too
+        const method = todo ? "PATCH" : "POST";
+
+        const todoResponse = await apiRequest(method, endpoint, {
+          ...values,
+          description: values.description || null,
+          dueDate: values.dueDate || null,
+          estimatedAmount: values.estimatedAmount ? Number(values.estimatedAmount) : null,
+          hasAssociatedExpense: values.hasAssociatedExpense ? 1 : 0,
+          priority: values.priority ? 1 : 0,
+        });
+
+        const todoData = await todoResponse.json();
+        console.log('Todo created:', todoData);
+
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
           console.log('Creating associated expense');
           await apiRequest("POST", "/api/expenses", {
@@ -112,46 +106,47 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
     }
   });
 
-  // Create new category mutation
   const categoryMutation = useMutation({
-    mutationFn: async () => {
-      if (!categoryName.trim()) {
-        throw new Error("Category name is required");
-      }
-      
-      // Check for duplicates
-      if (categories?.includes(categoryName.trim())) {
-        throw new Error("Category already exists");
-      }
-      
-      return apiRequest("POST", "/api/categories", { name: categoryName.trim() });
+    mutationFn: async (name: string) => {
+      const response = await apiRequest("POST", "/api/categories", { name });
+      return response;
     },
     onSuccess: async (response) => {
       try {
         const data = await response.json();
         queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-        
-        // Save the new category name to select it when it becomes available in the list
-        setNewlyAddedCategory(data.name);
-        
+
+        // Auto-select the newly created category
+        form.setValue("category", data.name);
         setIsAddingCategory(false);
         setCategoryName("");
         toast({
           title: "Success",
-          description: "Category added successfully"
+          description: "Category created successfully"
         });
       } catch (error) {
         console.error("Error processing category response:", error);
+        toast({
+          title: "Error",
+          description: "Failed to create category",
+          variant: "destructive"
+        });
       }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add category",
+        description: error.message || "Failed to create category",
         variant: "destructive"
       });
     }
   });
+
+  const handleCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName.trim()) return;
+    categoryMutation.mutate(categoryName.trim());
+  };
 
   return (
     <Form {...form}>
@@ -177,7 +172,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value || ""} />
+                <Textarea {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -193,8 +188,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
               <div className="flex gap-2">
                 <Select 
                   onValueChange={field.onChange} 
-                  value={field.value || "Unassigned"} 
-                  defaultValue="Unassigned"
+                  value={field.value}
+                  defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -202,7 +197,7 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {todoCategories.map((category) => (
+                    {allCategories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -224,32 +219,25 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                       +
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent onClick={(e) => e.stopPropagation()}>
                     <DialogHeader>
-                      <DialogTitle>Add New Category</DialogTitle>
-                      <DialogDescription>
-                        Enter a name for the new category
-                      </DialogDescription>
+                      <DialogTitle>Create New Category</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Input
-                          id="categoryName"
-                          value={categoryName}
-                          onChange={(e) => setCategoryName(e.target.value)}
-                          className="col-span-4"
-                          placeholder="Category name"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        onClick={() => categoryMutation.mutate()}
-                      >
-                        Add Category
+                    <form onSubmit={handleCategorySubmit} className="space-y-4">
+                      <FormItem>
+                        <FormLabel>Category Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            value={categoryName}
+                            onChange={(e) => setCategoryName(e.target.value)}
+                            placeholder="Enter category name"
+                          />
+                        </FormControl>
+                      </FormItem>
+                      <Button type="submit" disabled={categoryMutation.isPending}>
+                        {categoryMutation.isPending ? "Creating..." : "Create Category"}
                       </Button>
-                    </DialogFooter>
+                    </form>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -260,63 +248,40 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
 
         <FormField
           control={form.control}
-          name="priority"
+          name="dueDate"
           render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 rounded-md border">
+            <FormItem>
+              <FormLabel>Due Date</FormLabel>
               <FormControl>
-                <Checkbox
-                  checked={field.value === 1}
-                  onCheckedChange={(checked) => {
-                    field.onChange(checked ? 1 : 0);
+                <Input
+                  type="date"
+                  {...field}
+                  value={field.value ? field.value.split('T')[0] : ''}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    field.onChange(date ? new Date(date).toISOString() : null);
                   }}
                 />
               </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  High Priority
-                </FormLabel>
-                <FormDescription>
-                  Mark as high priority task
-                </FormDescription>
-              </div>
+              <FormMessage />
             </FormItem>
           )}
         />
 
         <FormField
           control={form.control}
-          name="dueDate"
+          name="priority"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Due Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(new Date(field.value), "PPP")
-                      ) : (
-                        <span>No due date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value ? new Date(field.value) : undefined}
-                    onSelect={(date) => field.onChange(date?.toISOString() || null)}
-                    initialFocus
+            <FormItem>
+              <div className="flex items-center gap-2">
+                <FormLabel>High Priority</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value === 1}
+                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
                   />
-                </PopoverContent>
-              </Popover>
+                </FormControl>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -326,23 +291,17 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
           control={form.control}
           name="hasAssociatedExpense"
           render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 rounded-md border">
-              <FormControl>
-                <Checkbox
-                  checked={field.value === 1}
-                  onCheckedChange={(checked) => {
-                    field.onChange(checked ? 1 : 0);
-                  }}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  Create Budget Item
-                </FormLabel>
-                <FormDescription>
-                  Creates a budget expense for this task
-                </FormDescription>
+            <FormItem>
+              <div className="flex items-center gap-2">
+                <FormLabel>Create Budget Item</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value === 1}
+                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
+                  />
+                </FormControl>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -359,8 +318,8 @@ export default function TodoForm({ todo, onCancel }: TodoFormProps) {
                     type="number"
                     step="0.01"
                     {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => field.onChange(e.target.valueAsNumber || null)}
+                    value={field.value || ''}
+                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
                   />
                 </FormControl>
                 <FormMessage />
