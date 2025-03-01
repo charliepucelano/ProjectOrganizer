@@ -1,5 +1,4 @@
 import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const defaultTodoCategories = [
@@ -52,7 +51,7 @@ export const expenses = pgTable("expenses", {
   completedAt: timestamp("completed_at"),
 });
 
-// Create a base todo schema with proper date validation
+// Create a base todo schema with proper validation
 const baseTodoSchema = {
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable(),
@@ -64,7 +63,7 @@ const baseTodoSchema = {
   estimatedAmount: z.number().nullable(),
 };
 
-// Create a base expense schema with proper date validation
+// Create a base expense schema with proper validation
 const baseExpenseSchema = {
   description: z.string().min(1, "Description is required"),
   amount: z.number().min(0, "Amount must be positive"),
@@ -78,7 +77,9 @@ const baseExpenseSchema = {
 // Use the base schemas for both insert and update operations
 export const insertTodoSchema = z.object(baseTodoSchema);
 export const insertExpenseSchema = z.object(baseExpenseSchema);
-export const insertCustomCategorySchema = createInsertSchema(customCategories).omit({ id: true });
+export const insertCustomCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+});
 
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;

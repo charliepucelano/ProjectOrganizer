@@ -127,13 +127,23 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
   const onSubmit = async (data: any) => {
     if (isSubmitting) return;
     try {
-      // If there's a due date selected, ensure it's formatted correctly
-      if (data.dueDate && tempDate) {
-        data.dueDate = tempDate.toISOString();
-      }
-      await mutation.mutateAsync(data);
+      const formData = {
+        ...data,
+        description: data.description || null,
+        dueDate: data.dueDate || null,
+        estimatedAmount: data.estimatedAmount ? Number(data.estimatedAmount) : null,
+        hasAssociatedExpense: data.hasAssociatedExpense ? 1 : 0,
+        priority: data.priority ? 1 : 0,
+      };
+
+      await mutation.mutateAsync(formData);
     } catch (error) {
       console.error("Form submission error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save todo. Please check all fields and try again.",
+        variant: "destructive"
+      });
     }
   };
 
