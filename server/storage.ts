@@ -57,6 +57,7 @@ export class MemStorage implements IStorage {
       ...todo,
       id,
       description: todo.description || null,
+      category: todo.category || "Unassigned", // Ensure category is set
       dueDate: todo.dueDate || null,
       estimatedAmount: todo.estimatedAmount || null,
       completed: todo.completed || 0,

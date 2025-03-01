@@ -53,7 +53,7 @@ export const expenses = pgTable("expenses", {
 export const insertTodoSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable(),
-  category: z.string().min(1, "Category is required"),
+  category: z.string().min(1, "Category is required").default("Unassigned"),
   completed: z.number().default(0),
   dueDate: z.string().nullable(),
   priority: z.number().default(0),

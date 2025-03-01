@@ -34,7 +34,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
     defaultValues: todo || {
       title: "",
       description: "",
-      category: "Pre-Move",
+      category: "Unassigned", // Set Unassigned as default
       priority: 0,
       completed: 0,
       dueDate: null,
