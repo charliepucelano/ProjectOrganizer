@@ -58,6 +58,14 @@ export async function registerRoutes(app: Express) {
       }
     }
 
+    // Update all expenses with this category to "Other"
+    const expenses = await storage.getExpenses();
+    for (const expense of expenses) {
+      if (expense.category.toLowerCase() === categoryName.toLowerCase()) {
+        await storage.updateExpense(expense.id, { ...expense, category: "Other" });
+      }
+    }
+
     res.status(200).json({ message: "Category deleted successfully" });
   });
 

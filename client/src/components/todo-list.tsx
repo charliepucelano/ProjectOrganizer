@@ -27,12 +27,12 @@ export default function TodoList({ todos }: TodoListProps) {
   const { toast } = useToast();
 
   // Get custom categories
-  const { data: customCategories = [] } = useQuery({
+  const { data: categories = [] } = useQuery<string[]>({
     queryKey: ["/api/categories"]
   });
 
   // Combine default and custom categories
-  const allCategories = ["all", ...defaultTodoCategories, ...customCategories.map(c => c.name)];
+  const allCategories = ["all", ...categories];
 
   // Calculate task statistics and organize todos
   const organizedTodos = useMemo(() => {
@@ -95,7 +95,7 @@ export default function TodoList({ todos }: TodoListProps) {
         completed: completed.sort(sortByDueDate)
       }
     };
-  }, [todos, filterBy, selectedCategory, customCategories]);
+  }, [todos, filterBy, selectedCategory, categories]);
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
