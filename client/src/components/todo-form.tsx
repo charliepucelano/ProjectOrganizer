@@ -110,10 +110,15 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      await apiRequest("POST", "/api/categories", { name });
+      const response = await apiRequest("POST", "/api/categories", { name });
+      const newCategory = await response.json();
+      return newCategory.name; //return the name of the newly created category
+
     },
-    onSuccess: () => {
+    onSuccess: (_, newCategory) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      // Auto-select the newly created category
+      form.setValue("category", newCategory);
       setIsAddingCategory(false);
       setCategoryName("");
       toast({
@@ -184,7 +189,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             <FormItem>
               <FormLabel>Category</FormLabel>
               <div className="flex gap-2">
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a category" />
