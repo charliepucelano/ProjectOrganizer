@@ -58,7 +58,7 @@ const baseTodoSchema = {
   description: z.string().nullable(),
   category: z.string().min(1, "Category is required"),
   completed: z.number().default(0),
-  dueDate: z.string().nullable().transform(val => val ? new Date(val).toISOString() : null),
+  dueDate: z.string().nullable(),
   priority: z.number().default(0),
   hasAssociatedExpense: z.number().default(0),
   estimatedAmount: z.number().nullable(),
@@ -69,10 +69,10 @@ const baseExpenseSchema = {
   description: z.string().min(1, "Description is required"),
   amount: z.number().min(0, "Amount must be positive"),
   category: z.string().min(1, "Category is required"),
-  date: z.string().transform(val => new Date(val).toISOString()),
+  date: z.string(),
   todoId: z.number().nullable(),
   isBudget: z.number().default(0),
-  completedAt: z.string().nullable().transform(val => val ? new Date(val).toISOString() : null),
+  completedAt: z.string().nullable(),
 };
 
 // Use the base schemas for both insert and update operations

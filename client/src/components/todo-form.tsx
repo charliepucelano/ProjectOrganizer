@@ -63,7 +63,7 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             description: values.title,
             amount: values.estimatedAmount,
             category: values.category,
-            date: values.dueDate || new Date().toISOString(),
+            date: new Date().toISOString(),
             todoId: todoData.id,
             isBudget: 1
           });
