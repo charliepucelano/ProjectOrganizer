@@ -21,10 +21,6 @@ export const defaultExpenseCategories = [
   "Other"
 ] as const;
 
-export const customCategories = pgTable("custom_categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-});
 
 export const todos = pgTable("todos", {
   id: serial("id").primaryKey(),
@@ -72,13 +68,7 @@ export const insertExpenseSchema = z.object({
   completedAt: z.string().nullable(),
 });
 
-export const insertCustomCategorySchema = z.object({
-  name: z.string().min(1, "Category name is required"),
-});
-
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
-export type CustomCategory = typeof customCategories.$inferSelect;
-export type InsertCustomCategory = z.infer<typeof insertCustomCategorySchema>;

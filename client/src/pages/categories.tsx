@@ -8,76 +8,79 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertCustomCategorySchema, defaultTodoCategories } from "@shared/schema";
+import { defaultTodoCategories } from "@shared/schema";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import EditCategoryDialog from "@/components/edit-category-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { z } from "zod";
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Category name is required")
+});
 
 export default function Categories() {
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { data: customCategories = [] } = useQuery({
-    queryKey: ["/api/categories"]
+  const { data: categories = [], status } = useQuery({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiRequest("GET", "/api/categories")
   });
 
   const form = useForm({
-    resolver: zodResolver(insertCustomCategorySchema),
+    resolver: zodResolver(categorySchema),
     defaultValues: {
       name: "",
     }
   });
 
   const createMutation = useMutation({
-    mutationFn: async (values: any) => {
-      await apiRequest("POST", "/api/categories", values);
+    mutationFn: async (values: { name: string }) => {
+      const response = await apiRequest("POST", "/api/categories", values);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create category");
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       form.reset();
       toast({
         title: "Success",
-        description: "Category created successfully"
+        description: "Category added successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
       });
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/categories/${id}`);
+    mutationFn: async (category: string) => {
+      await apiRequest("DELETE", `/api/categories/${category}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      setDeleteDialogOpen(false);
+      setDeleteDialog(null);
       toast({
         title: "Success",
         description: "Category deleted successfully"
       });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
-
-  const onSubmit = (values: any) => {
-    createMutation.mutate(values);
-  };
-
-  const handleEditClick = (category: any) => {
-    setSelectedCategory(category);
-    setEditDialogOpen(true);
-  };
-
-  const handleDeleteClick = (category: any) => {
-    setSelectedCategory(category);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (selectedCategory) {
-      deleteMutation.mutate(selectedCategory.id);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -89,7 +92,7 @@ export default function Categories() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+            <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="flex gap-2">
               <FormField
                 control={form.control}
                 name="name"
@@ -111,44 +114,58 @@ export default function Categories() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Categories</CardTitle>
+          <CardTitle>Categories</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {defaultTodoCategories.map((category) => (
-              <div key={category} className="flex items-center justify-between p-2 border rounded-md">
-                <span>{category}</span>
-              </div>
-            ))}
+            {status === "loading" ? (
+              <p>Loading categories...</p>
+            ) : (
+              categories.map((category: string) => (
+                <div key={category} className="flex items-center justify-between p-2 border rounded-md">
+                  <span>{category}</span>
+                  {category !== "Unassigned" && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingCategory(category)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteDialog(category)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {selectedCategory && (
-        <>
-          <EditCategoryDialog 
-            category={selectedCategory} 
-            open={editDialogOpen} 
-            onOpenChange={setEditDialogOpen}
-          />
-
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will delete the category "{selectedCategory.name}". All items in this category will be moved to "Unassigned".
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      )}
+      <AlertDialog open={!!deleteDialog} onOpenChange={setDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the category and move all associated items to "Unassigned".
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteDialog(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteDialog && deleteMutation.mutate(deleteDialog)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
