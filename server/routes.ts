@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertTodoSchema, insertExpenseSchema, defaultTodoCategories } from "@shared/schema";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
+import { requireAuth } from "./auth";
+import { getAuthUrl, setCredentials, createCalendarEvent } from './services/calendar';
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
@@ -182,6 +184,17 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ error: parsed.error });
     }
     const todo = await storage.createTodo(parsed.data);
+
+    // Create calendar event if the user has Google Calendar connected
+    if (req.user?.googleAccessToken && todo.dueDate) {
+      try {
+        await createCalendarEvent(todo);
+      } catch (error) {
+        console.error("Failed to create calendar event:", error);
+        // Continue even if calendar event creation fails
+      }
+    }
+
     res.json(todo);
   });
 
@@ -360,6 +373,61 @@ export async function registerRoutes(app: Express) {
     await storage.deleteExpense(id);
     res.status(204).end();
   });
+
+  /**
+   * @swagger
+   * /auth/google:
+   *   get:
+   *     summary: Start Google OAuth flow
+   *     tags: [Auth]
+   *     security:
+   *       - cookieAuth: []
+   *     responses:
+   *       302:
+   *         description: Redirects to Google OAuth consent screen
+   */
+  app.get("/api/auth/google", requireAuth, (_req, res) => {
+    const authUrl = getAuthUrl();
+    res.redirect(authUrl);
+  });
+
+  /**
+   * @swagger
+   * /auth/google/callback:
+   *   get:
+   *     summary: Handle Google OAuth callback
+   *     tags: [Auth]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: code
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       302:
+   *         description: Redirects back to application
+   */
+  app.get("/api/auth/google/callback", requireAuth, async (req, res) => {
+    try {
+      const code = req.query.code as string;
+      const tokens = await setCredentials(code);
+
+      if (req.user) {
+        await storage.updateUser(req.user.id, {
+          googleAccessToken: tokens.access_token,
+          googleRefreshToken: tokens.refresh_token,
+        });
+      }
+
+      res.redirect("/");
+    } catch (error) {
+      console.error("Google OAuth callback error:", error);
+      res.redirect("/?error=google_auth_failed");
+    }
+  });
+
 
   return createServer(app);
 }

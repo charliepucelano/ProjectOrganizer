@@ -1,4 +1,4 @@
-import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -21,6 +21,7 @@ export interface IStorage {
   getUser(id: number): Promise<User>;
   getUserByUsername(username: string): Promise<User | null>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, update: Partial<User>): Promise<User>;  
 
   // Categories
   getCustomCategories(): Promise<CustomCategory[]>;
@@ -87,6 +88,15 @@ export class MemStorage implements IStorage {
     const newUser = { ...user, id };
     this.users.set(id, newUser);
     return newUser;
+  }
+
+  async updateUser(id: number, update: Partial<User>): Promise<User> {
+    const user = await this.getUser(id);
+    if (!user) throw new Error("User not found");
+
+    const updatedUser = { ...user, ...update };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   async getTodos(): Promise<Todo[]> {
