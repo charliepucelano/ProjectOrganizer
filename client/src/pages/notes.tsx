@@ -120,10 +120,8 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     mutationFn: async (data: { title: string; content: string; tags: string[]; projectId: number }) => {
       const response = await apiRequest(
         "/api/notes",
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        }
+        "POST",
+        JSON.stringify(data)
       );
       return response.json();
     },
@@ -148,10 +146,8 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     mutationFn: async (data: { id: number; title: string; content: string; tags: string[] }) => {
       const response = await apiRequest(
         `/api/notes/${data.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        }
+        "PATCH",
+        JSON.stringify(data)
       );
       return response.json();
     },
@@ -291,21 +287,19 @@ function NotesPage() {
   const [selectedNote, setSelectedNote] = useState<Note | undefined>(undefined);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const { data: notes = [], isLoading } = useQuery({
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: [`/api/projects/${projectId}/notes`],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
-  const { data: project = {} } = useQuery({
+  const { data: project = { name: "" } } = useQuery<{ id: number; name: string }>({
     queryKey: [`/api/projects/${projectId}`],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/notes/${id}`, {
-        method: "DELETE",
-      });
+      await apiRequest(`/api/notes/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
@@ -346,11 +340,11 @@ function NotesPage() {
 
   // Extract all unique tags from notes
   const allTags = Array.from(
-    new Set(notes.flatMap((note: Note) => note.tags))
+    new Set(notes?.flatMap((note: Note) => note.tags) || [])
   ).sort();
 
   // Filter notes based on search, active tab, and selected tag
-  const filteredNotes = notes.filter((note: Note) => {
+  const filteredNotes = (notes || []).filter((note: Note) => {
     const matchesSearch = search
       ? note.title.toLowerCase().includes(search.toLowerCase()) ||
         note.content.toLowerCase().includes(search.toLowerCase()) ||
@@ -451,9 +445,5 @@ function NotesPage() {
 }
 
 export default function NotesProtected() {
-  return (
-    <ProtectedRoute>
-      <NotesPage />
-    </ProtectedRoute>
-  );
+  return <NotesPage />;
 }
