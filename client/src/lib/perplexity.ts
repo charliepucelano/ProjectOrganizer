@@ -190,7 +190,14 @@ export async function expandNote(content: string, title: string, tags: string[] 
       }
     ], DEFAULT_MODEL, 0.5); // Using slightly higher temperature for creativity
     
-    return data.choices[0].message.content;
+    const responseContent = data.choices[0].message.content;
+    
+    // Debug log to see what Perplexity is returning
+    console.log("=== PERPLEXITY API RESPONSE ===");
+    console.log(responseContent);
+    console.log("===============================");
+    
+    return responseContent;
   } catch (error) {
     console.error("Error expanding note:", error);
     throw new Error("Failed to expand note. Please try again later.");
