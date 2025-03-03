@@ -24,17 +24,20 @@ function Navigation() {
   
   // Check if current path is project-specific
   const isProjectPage = location.startsWith('/project/');
-  const isProjectsPage = location === '/projects';
-  const showMainNav = !isProjectPage && !isProjectsPage;
+  const isProjectsPage = location === '/projects' || location === '/';
+  const showMainNav = !isProjectPage;
 
   return (
     <div className="w-full py-4 border-b">
       <div className="container mx-auto flex justify-between items-center">
         {showMainNav ? (
           <>
-            <Tabs value={location} onValueChange={navigate}>
+            <Tabs 
+              value={location === '/' ? '/projects' : location} 
+              onValueChange={navigate}
+            >
               <TabsList>
-                <TabsTrigger value="/">Tasks</TabsTrigger>
+                <TabsTrigger value="/home">Tasks</TabsTrigger>
                 <TabsTrigger value="/budget">Budget</TabsTrigger>
                 <TabsTrigger value="/categories">Categories</TabsTrigger>
                 <TabsTrigger value="/projects">
