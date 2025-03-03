@@ -15,24 +15,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface TodoListProps {
   todos: Todo[];
+  projectId?: number;
 }
 
 type FilterOption = "all" | "completed" | "incomplete" | "category";
 
-export default function TodoList({ todos }: TodoListProps) {
+export default function TodoList({ todos, projectId }: TodoListProps) {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showPriority, setShowPriority] = useState(true);
   const { toast } = useToast();
 
-  // Get custom categories
-  const { data: categories = [] } = useQuery<string[]>({
-    queryKey: ["/api/categories"]
+  // Get custom categories - either global or project-specific
+  const { data: customCategories = [] } = useQuery({
+    queryKey: projectId ? [`/api/projects/${projectId}/categories`] : ["/api/categories"],
+    enabled: !!projectId
   });
 
   // Combine default and custom categories
-  const allCategories = ["all", ...categories];
+  const allCategories = useMemo(() => {
+    const categories = projectId 
+      ? [...defaultTodoCategories, ...(customCategories?.map ? customCategories.map((c: any) => c.name) : [])]
+      : defaultTodoCategories;
+    
+    return ["all", ...categories];
+  }, [projectId, customCategories]);
 
   // Calculate task statistics and organize todos
   const organizedTodos = useMemo(() => {
@@ -95,7 +103,7 @@ export default function TodoList({ todos }: TodoListProps) {
         completed: completed.sort(sortByDueDate)
       }
     };
-  }, [todos, filterBy, selectedCategory, categories]);
+  }, [todos, filterBy, selectedCategory, allCategories]);
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
@@ -107,7 +115,12 @@ export default function TodoList({ todos }: TodoListProps) {
       );
 
       if (todo.hasAssociatedExpense) {
-        const response = await apiRequest("GET", `/api/expenses`);
+        // Get relevant expenses (project-specific or global)
+        const endpoint = projectId 
+          ? `/api/projects/${projectId}/expenses`
+          : "/api/expenses";
+        
+        const response = await apiRequest("GET", endpoint);
         const expenses = await response.json();
         const expense = expenses.find((e: any) => e.todoId === todo.id);
 
@@ -124,8 +137,15 @@ export default function TodoList({ todos }: TodoListProps) {
       }
     },
     onSuccess: (_, todo) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      // Invalidate the appropriate queries
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      }
+      
       toast({
         title: "Success",
         description: `Task ${todo.completed ? "reopened" : "completed"} successfully`
@@ -137,16 +157,29 @@ export default function TodoList({ todos }: TodoListProps) {
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/todos/${id}`);
 
-      const response = await apiRequest("GET", `/api/expenses`);
+      // Check for associated expenses to delete
+      const endpoint = projectId 
+        ? `/api/projects/${projectId}/expenses`
+        : "/api/expenses";
+      
+      const response = await apiRequest("GET", endpoint);
       const expenses = await response.json();
       const expense = expenses.find((e: any) => e.todoId === id);
+      
       if (expense) {
         await apiRequest("DELETE", `/api/expenses/${expense.id}`);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      // Invalidate the appropriate queries
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      }
+      
       toast({
         title: "Success",
         description: "Task deleted successfully"
@@ -271,7 +304,9 @@ export default function TodoList({ todos }: TodoListProps) {
               ...editingTodo,
               dueDate: editingTodo.dueDate ? new Date(editingTodo.dueDate).toISOString() : null
             }}
+            projectId={projectId}
             onCancel={() => setEditingTodo(null)}
+            onSuccess={() => setEditingTodo(null)}
           />
         </CardContent>
       </Card>
