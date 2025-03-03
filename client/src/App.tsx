@@ -15,10 +15,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { LogOut, FolderKanban } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "@/components/language-switcher";
 
 function Navigation() {
   const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   if (!user) return null;
   
@@ -37,12 +40,12 @@ function Navigation() {
               onValueChange={navigate}
             >
               <TabsList>
-                <TabsTrigger value="/home">Tasks</TabsTrigger>
-                <TabsTrigger value="/budget">Budget</TabsTrigger>
-                <TabsTrigger value="/categories">Categories</TabsTrigger>
+                <TabsTrigger value="/home">{t('common.tasks')}</TabsTrigger>
+                <TabsTrigger value="/budget">{t('common.budget')}</TabsTrigger>
+                <TabsTrigger value="/categories">{t('common.categories')}</TabsTrigger>
                 <TabsTrigger value="/projects">
                   <FolderKanban className="h-4 w-4 mr-2" />
-                  Projects
+                  {t('projects.myProjects')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -53,17 +56,20 @@ function Navigation() {
           </div>
         )}
         
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => {
-            logout();
-            navigate("/auth");
-          }}
-          title="Logout"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => {
+              logout();
+              navigate("/auth");
+            }}
+            title={t('common.logout')}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
