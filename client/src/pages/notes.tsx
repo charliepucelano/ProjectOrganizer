@@ -196,25 +196,7 @@ Please refine the original research based on these instructions.
               <Edit className="w-4 h-4 mr-2" />
               {t("edit") || "Edit"}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleGetSuggestions} disabled={suggestionsLoading}>
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="w-4 h-4 mr-2"
-              >
-                <path d="M2 12h10" />
-                <path d="M9 4v16" />
-                <path d="m14 4 7 7-7 7" />
-              </svg>
-              {suggestionsLoading 
-                ? (t("loading") || "Loading...") 
-                : (t("getSuggestions") || "Smart Suggestions")}
-            </DropdownMenuItem>
+
             <DropdownMenuItem onClick={handleResearchNote} disabled={expandLoading}>
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -275,17 +257,9 @@ Please refine the original research based on these instructions.
       {isExpanded && (
         <div className="mb-3">
           <div 
-            className="prose prose-sm max-w-none mb-3 p-3 bg-secondary/30 rounded-md" 
+            className="prose prose-sm max-w-none mb-3 p-3 bg-secondary/30 rounded-md prose-a:text-primary prose-a:underline" 
             dangerouslySetInnerHTML={createMarkdownHtml(expandedContent)} 
           />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="mt-2"
-            onClick={() => setIsExpanded(false)}
-          >
-            {t("showOriginal") || "Show Original"}
-          </Button>
         </div>
       )}
       
@@ -300,7 +274,7 @@ Please refine the original research based on these instructions.
           </DialogHeader>
           
           <div className="py-4">
-            <div className="prose prose-sm max-w-none mb-4 p-4 border rounded-md bg-card">
+            <div className="prose prose-sm max-w-none mb-4 p-4 border rounded-md bg-card prose-a:text-primary prose-a:underline">
               <div dangerouslySetInnerHTML={createMarkdownHtml(expandedContent)} />
             </div>
             
