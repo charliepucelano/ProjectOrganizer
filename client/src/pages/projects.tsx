@@ -117,10 +117,7 @@ export default function Projects() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                form.handleSubmit(onSubmit)(e);
-              }} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -186,10 +183,7 @@ export default function Projects() {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    form.handleSubmit(onSubmit)(e);
-                  }} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <FormField
                       control={form.control}
                       name="name"

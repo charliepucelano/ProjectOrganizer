@@ -41,7 +41,7 @@ export default function ExpenseForm({ expense, onCancel, projectId, onSuccess }:
     defaultValues: expense || {
       description: "",
       amount: 0,
-      category: "Other",
+      category: "Unassigned",
       date: new Date().toISOString(),
       isBudget: 0,
       todoId: null,
@@ -163,21 +163,24 @@ export default function ExpenseForm({ expense, onCancel, projectId, onSuccess }:
           render={({ field }) => (
             <FormItem>
               <div className="flex items-center gap-2">
-                <FormLabel>Budget Item (not an actual expense)</FormLabel>
+                <FormLabel>Mark as Paid</FormLabel>
                 <FormControl>
                   <Switch
-                    checked={field.value === 1}
-                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
+                    checked={field.value === 0}
+                    onCheckedChange={(checked) => field.onChange(checked ? 0 : 1)}
                   />
                 </FormControl>
               </div>
+              <FormDescription>
+                Unpaid expenses contribute to your total budget need.
+              </FormDescription>
             </FormItem>
           )}
         />
 
         <div className="flex gap-2">
           <Button type="submit" className="flex-1">
-            {expense ? "Update" : "Add"} {form.watch("isBudget") ? "Budget Item" : "Expense"}
+            {expense ? "Update" : "Add"} Expense
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
