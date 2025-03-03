@@ -15,6 +15,7 @@
     "tasks": "Tasks",
     "expenses": "Expenses",
     "overview": "Overview",
+    "calendar": "Calendar",
     "logout": "Logout",
     "login": "Login",
     "register": "Register",
@@ -126,7 +127,8 @@
     "reassignTo": "Reassign items to",
     "assignedItemsWarning": "This category has assigned items. Choose a category to reassign them to before deleting.",
     "defaultCategories": "Default Categories",
-    "customCategories": "Custom Categories"
+    "customCategories": "Custom Categories",
+    "noCategories": "No custom categories yet"
   },
   "auth": {
     "loginTitle": "Login to your account",

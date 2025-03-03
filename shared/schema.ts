@@ -1,25 +1,22 @@
 import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
-export const defaultTodoCategories = [
-  "Unassigned",
+export const defaultCategories = [
+  "Unassigned", // Default for both, cannot be deleted
   "Financial Obligations",
   "Moving",
   "Utilities",
-  "Improvements",
-  "Furniture"
-] as const;
-
-export const defaultExpenseCategories = [
-  "Purchase",
-  "Moving",
-  "Repairs",
-  "Utilities",
   "Furniture",
+  "Repairs",
+  "Improvements",
   "Appliances",
   "Decor",
   "Other"
 ] as const;
+
+// Use the same categories for todos and expenses
+export const defaultTodoCategories = defaultCategories;
+export const defaultExpenseCategories = defaultCategories;
 
 // Add user schema
 export const users = pgTable("users", {

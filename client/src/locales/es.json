@@ -15,6 +15,7 @@
     "tasks": "Tareas",
     "expenses": "Gastos",
     "overview": "Resumen",
+    "calendar": "Calendario",
     "logout": "Cerrar sesión",
     "login": "Iniciar sesión",
     "register": "Registrarse",
@@ -126,7 +127,8 @@
     "reassignTo": "Reasignar elementos a",
     "assignedItemsWarning": "Esta categoría tiene elementos asignados. Elige una categoría para reasignarlos antes de eliminar.",
     "defaultCategories": "Categorías Predeterminadas",
-    "customCategories": "Categorías Personalizadas"
+    "customCategories": "Categorías Personalizadas",
+    "noCategories": "No hay categorías personalizadas todavía"
   },
   "auth": {
     "loginTitle": "Inicia sesión en tu cuenta",

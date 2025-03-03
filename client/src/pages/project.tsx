@@ -276,9 +276,9 @@ export default function ProjectPage() {
             </div>
           </div>
           <div>
-            <Button variant="outline" onClick={() => navigate(`/project/${projectId}/settings`)}>
+            <Button variant="outline" onClick={() => setActiveTab("settings")}>
               <Settings className="h-4 w-4 mr-2" />
-              Project Settings
+              {t('settings.projectSettings')}
             </Button>
           </div>
         </div>

@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { defaultExpenseCategories, defaultTodoCategories } from '../../../shared/schema';
+import { defaultCategories } from '../../../shared/schema';
 
 interface ProjectSettingsProps {
   projectId: number;
@@ -107,8 +107,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
 
   // Get all available categories (default + custom)
   const allCategories = [
-    ...defaultTodoCategories,
-    ...defaultExpenseCategories,
+    ...defaultCategories,
     ...(customCategories?.map((cat: CustomCategory) => cat.name) || [])
   ].filter((cat, index, self) => self.indexOf(cat) === index); // Remove duplicates
 
@@ -148,18 +147,11 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
                   <CardContent>
                     <ScrollArea className="h-[200px]">
                       <div className="flex flex-wrap gap-2">
-                        {defaultTodoCategories.map((category) => (
+                        {defaultCategories.map((category) => (
                           <Badge key={category} variant="outline" className="text-sm py-1">
                             {category}
                           </Badge>
                         ))}
-                        {defaultExpenseCategories
-                          .filter(cat => !defaultTodoCategories.includes(cat))
-                          .map((category) => (
-                            <Badge key={category} variant="outline" className="text-sm py-1">
-                              {category}
-                            </Badge>
-                          ))}
                       </div>
                     </ScrollArea>
                   </CardContent>
