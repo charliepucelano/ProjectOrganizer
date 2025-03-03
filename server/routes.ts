@@ -9,8 +9,8 @@ import {
   insertProjectSchema,
   insertCustomCategorySchema,
   insertNoteSchema,
-  ZodError,
 } from "@shared/schema";
+import { ZodError } from "zod";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
 import { requireAuth } from "./auth";
@@ -24,7 +24,7 @@ import { checkAndNotifyTasks } from "./services/notifications";
 
 // Helper function to format Zod validation errors
 function formatZodError(err: ZodError): string {
-  return err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+  return err.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
 }
 
 export async function registerRoutes(app: Express) {
@@ -751,6 +751,342 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to check notifications:", error);
       res.status(500).json({ error: "Failed to check notifications" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{projectId}/notes:
+   *   get:
+   *     summary: Get all notes for a specific project
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: List of notes
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Note'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
+   */
+  app.get("/api/projects/:projectId/notes", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const project = await storage.getProject(projectId);
+      const user = req.user!;
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const notes = await storage.getNotes(projectId);
+      res.json(notes);
+    } catch (err) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /notes/{id}:
+   *   get:
+   *     summary: Get a note by ID
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Note details
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Note'
+   *       403:
+   *         description: You don't have access to this note
+   *       404:
+   *         description: Note not found
+   */
+  app.get("/api/notes/:id", requireAuth, async (req, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const note = await storage.getNoteById(noteId);
+      const user = req.user!;
+      const project = await storage.getProject(note.projectId);
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this note" });
+      }
+      
+      res.json(note);
+    } catch (err) {
+      res.status(404).json({ error: "Note not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{projectId}/notes/tag/{tag}:
+   *   get:
+   *     summary: Get notes by tag for a specific project
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *       - in: path
+   *         name: tag
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of notes with the specified tag
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Note'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
+   */
+  app.get("/api/projects/:projectId/notes/tag/:tag", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const tag = req.params.tag;
+      const project = await storage.getProject(projectId);
+      const user = req.user!;
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const notes = await storage.getNotesByTag(projectId, tag);
+      res.json(notes);
+    } catch (err) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{projectId}/notes/search:
+   *   get:
+   *     summary: Search notes for a specific project
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: q
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of notes matching the search query
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Note'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
+   */
+  app.get("/api/projects/:projectId/notes/search", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const query = req.query.q as string;
+      const project = await storage.getProject(projectId);
+      const user = req.user!;
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      if (!query) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+      
+      const notes = await storage.searchNotes(projectId, query);
+      res.json(notes);
+    } catch (err) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /notes:
+   *   post:
+   *     summary: Create a new note
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/Note'
+   *     responses:
+   *       200:
+   *         description: Created note
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Note'
+   *       400:
+   *         description: Invalid note data
+   *       403:
+   *         description: You don't have access to this project
+   */
+  app.post("/api/notes", requireAuth, async (req, res) => {
+    try {
+      const user = req.user!;
+      const noteData = req.body;
+      
+      // Validate the note data
+      try {
+        const parsedData = insertNoteSchema.parse(noteData);
+        
+        // Check if user has access to the project
+        const project = await storage.getProject(parsedData.projectId);
+        
+        if (project.userId !== user.id) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        const note = await storage.createNote(parsedData);
+        res.json(note);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ error: formatZodError(err) });
+        }
+        throw err;
+      }
+    } catch (err) {
+      console.error("Error creating note:", err);
+      res.status(500).json({ error: "Failed to create note" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /notes/{id}:
+   *   patch:
+   *     summary: Update a note
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/Note'
+   *     responses:
+   *       200:
+   *         description: Updated note
+   *       403:
+   *         description: You don't have access to this note
+   *       404:
+   *         description: Note not found
+   */
+  app.patch("/api/notes/:id", requireAuth, async (req, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const user = req.user!;
+      const note = await storage.getNoteById(noteId);
+      const project = await storage.getProject(note.projectId);
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this note" });
+      }
+      
+      const updatedNote = await storage.updateNote(noteId, req.body);
+      res.json(updatedNote);
+    } catch (err) {
+      res.status(404).json({ error: "Note not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /notes/{id}:
+   *   delete:
+   *     summary: Delete a note
+   *     tags: [Notes]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       204:
+   *         description: Note deleted successfully
+   *       403:
+   *         description: You don't have access to this note
+   *       404:
+   *         description: Note not found
+   */
+  app.delete("/api/notes/:id", requireAuth, async (req, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const user = req.user!;
+      const note = await storage.getNoteById(noteId);
+      const project = await storage.getProject(note.projectId);
+      
+      if (project.userId !== user.id) {
+        return res.status(403).json({ error: "You don't have access to this note" });
+      }
+      
+      await storage.deleteNote(noteId);
+      res.status(204).end();
+    } catch (err) {
+      res.status(404).json({ error: "Note not found" });
     }
   });
 

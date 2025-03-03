@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, real, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const defaultCategories = [
@@ -8,6 +8,13 @@ export const defaultCategories = [
   "Utilities",
   "Furniture"
 ] as const;
+
+// Define user roles for project access
+export const UserRole = {
+  OWNER: "owner",
+  EDITOR: "editor", 
+  VIEWER: "viewer"
+} as const;
 
 // Use the same categories for todos and expenses
 export const defaultTodoCategories = defaultCategories;
@@ -22,7 +29,8 @@ export const users = pgTable("users", {
   googleRefreshToken: text("google_refresh_token"),
 });
 
-// Projects table
+// Projects table - note we keep the userId field for backwards compatibility
+// and to indicate the "owner" of the project
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -30,6 +38,19 @@ export const projects = pgTable("projects", {
   userId: integer("user_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Project members table for tracking who has access to which projects
+export const projectMembers = pgTable("project_members", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projects.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default(UserRole.VIEWER),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userProjectIdx: uniqueIndex("user_project_idx").on(table.userId, table.projectId),
+  };
 });
 
 export const todos = pgTable("todos", {
@@ -141,6 +162,13 @@ export const insertNoteSchema = z.object({
   projectId: z.number().int(),
 });
 
+// Project member schema for inviting/adding users to projects
+export const insertProjectMemberSchema = z.object({
+  projectId: z.number().int(),
+  userId: z.number().int(),
+  role: z.enum([UserRole.OWNER, UserRole.EDITOR, UserRole.VIEWER]).default(UserRole.VIEWER),
+});
+
 // Add to the existing types section
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
@@ -156,6 +184,8 @@ export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
 
 // Add the insert schema
 export const insertPushSubscriptionSchema = z.object({
