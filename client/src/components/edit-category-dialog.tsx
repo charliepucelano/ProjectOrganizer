@@ -91,7 +91,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
                 Cancel
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? t('common.saving') : t('common.saveChanges')}
+                {mutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>

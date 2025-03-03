@@ -152,7 +152,39 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
                         <span className="text-sm text-muted-foreground">(Default - cannot be deleted)</span>
                       </div>
                       
-                      {/* We're not displaying the default categories separately anymore - they're all handled the same way */}
+                      {/* Show all default categories (except Unassigned) as editable/deletable too */}
+                      {Array.isArray(defaultCategories) && defaultCategories
+                        .filter(category => category !== "Unassigned")
+                        .map((category) => {
+                          // Create a fake CustomCategory object for default categories
+                          const defaultCategoryObj = {
+                            id: -1, // Use a temporary ID that won't conflict with real IDs
+                            name: category,
+                            projectId: projectId
+                          };
+                          
+                          return (
+                            <div key={category} className="flex items-center justify-between p-2 rounded-md border">
+                              <span>{category}</span>
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleCategoryEdit(defaultCategoryObj as CustomCategory)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => handleDeleteClick(defaultCategoryObj as CustomCategory)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       
                       {/* Then show any custom categories the user has added */}
                       {Array.isArray(customCategories) && customCategories.length > 0 && 
@@ -165,14 +197,14 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
                                 variant="outline"
                                 onClick={() => handleCategoryEdit(category)}
                               >
-                                {t('common.edit')}
+                                Edit
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="destructive"
                                 onClick={() => handleDeleteClick(category)}
                               >
-                                {t('common.delete')}
+                                Delete
                               </Button>
                             </div>
                           </div>
@@ -200,15 +232,15 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('categories.deleteCategory')}</AlertDialogTitle>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('categories.assignedItemsWarning')}
+              Any items assigned to this category will need to be reassigned.
             </AlertDialogDescription>
           </AlertDialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <h4 className="font-medium">{t('categories.reassignTo')}</h4>
+              <h4 className="font-medium">Reassign items to:</h4>
               <select 
                 className="w-full p-2 border rounded-md"
                 value={reassignCategory}
@@ -227,9 +259,9 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
           </div>
           
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteCategory}>
-              {t('common.delete')}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
