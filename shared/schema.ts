@@ -53,6 +53,16 @@ export const expenses = pgTable("expenses", {
   completedAt: timestamp("completed_at"),
 });
 
+// Add after the existing imports
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  lastNotified: timestamp("last_notified"),
+});
+
 // Create a base todo schema with proper validation
 export const insertTodoSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -82,9 +92,21 @@ export const insertUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+// Add to the existing types section
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+
+// Add the insert schema
+export const insertPushSubscriptionSchema = z.object({
+  userId: z.number(),
+  endpoint: z.string(),
+  p256dh: z.string(),
+  auth: z.string(),
+  lastNotified: z.string().nullable(),
+});

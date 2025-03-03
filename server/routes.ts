@@ -5,6 +5,7 @@ import {
   insertTodoSchema,
   insertExpenseSchema,
   defaultTodoCategories,
+  insertPushSubscriptionSchema,
 } from "@shared/schema";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
@@ -15,6 +16,7 @@ import {
   createCalendarEvent,
   syncAllTasks,
 } from "./services/calendar";
+import { checkAndNotifyDueTasks } from "./services/notifications";
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
@@ -423,5 +425,36 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  return createServer(app);
+  app.post("/api/push/subscribe", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertPushSubscriptionSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error });
+      }
+
+      const subscription = await storage.createPushSubscription(parsed.data);
+      res.json(subscription);
+    } catch (error) {
+      console.error("Failed to save push subscription:", error);
+      res.status(500).json({ error: "Failed to save subscription" });
+    }
+  });
+
+  app.get("/api/push/vapidKey", (_req, res) => {
+    res.json({ vapidKey: process.env.VAPID_PUBLIC_KEY });
+  });
+
+  const server = createServer(app);
+
+  // Set up notification checking only after server is created
+  server.on('listening', () => {
+    console.log('Setting up notification scheduler');
+    setInterval(checkAndNotifyDueTasks, 60 * 60 * 1000); // Check every hour
+  });
+
+  return server;
 }

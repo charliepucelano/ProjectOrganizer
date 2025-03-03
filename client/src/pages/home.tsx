@@ -10,6 +10,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import PushNotifications from '@/components/push-notifications';
 
 export default function Home() {
   const { data: todos, isLoading } = useQuery<Todo[]>({
@@ -146,6 +147,7 @@ export default function Home() {
                     </p>
                   </>
                 )}
+                <PushNotifications />
               </div>
             </div>
           </CardContent>

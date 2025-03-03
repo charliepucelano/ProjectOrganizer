@@ -1,4 +1,4 @@
-import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -22,6 +22,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | null>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, update: Partial<User>): Promise<User>;  
+  getUsers(): Promise<User[]>; // Add getUsers method
 
   // Categories
   getCustomCategories(): Promise<CustomCategory[]>;
@@ -32,6 +33,11 @@ export interface IStorage {
 
   // Session store
   sessionStore: session.Store;
+
+  // Push notification methods
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  getPushSubscriptions(userId: number): Promise<PushSubscription[]>;
+  updateLastNotified(subscriptionId: number, date: Date): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -43,6 +49,8 @@ export class MemStorage implements IStorage {
   private expenseId: number;
   private userId: number;
   private categoryId: number;
+  private pushSubscriptions: Map<number, PushSubscription>;
+  private pushSubscriptionId: number;
   readonly sessionStore: session.Store;
 
   constructor() {
@@ -54,6 +62,8 @@ export class MemStorage implements IStorage {
     this.expenseId = 1;
     this.userId = 1;
     this.categoryId = 1;
+    this.pushSubscriptions = new Map();
+    this.pushSubscriptionId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
     });
@@ -85,7 +95,7 @@ export class MemStorage implements IStorage {
 
   async createUser(user: InsertUser): Promise<User> {
     const id = this.userId++;
-    const newUser = { ...user, id };
+    const newUser = { ...user, id, googleAccessToken: null, googleRefreshToken: null };
     this.users.set(id, newUser);
     return newUser;
   }
@@ -207,6 +217,35 @@ export class MemStorage implements IStorage {
         await this.updateTodo(id, { category: newCategory });
       }
     }
+  }
+
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const id = this.pushSubscriptionId++;
+    const newSubscription = {
+      ...subscription,
+      id,
+      lastNotified: subscription.lastNotified ? new Date(subscription.lastNotified) : null
+    };
+    this.pushSubscriptions.set(id, newSubscription);
+    return newSubscription;
+  }
+
+  async getPushSubscriptions(userId: number): Promise<PushSubscription[]> {
+    return Array.from(this.pushSubscriptions.values())
+      .filter(sub => sub.userId === userId);
+  }
+
+  async updateLastNotified(subscriptionId: number, date: Date): Promise<void> {
+    const subscription = this.pushSubscriptions.get(subscriptionId);
+    if (!subscription) throw new Error("Subscription not found");
+
+    this.pushSubscriptions.set(subscriptionId, {
+      ...subscription,
+      lastNotified: date
+    });
+  }
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
   }
 }
 
