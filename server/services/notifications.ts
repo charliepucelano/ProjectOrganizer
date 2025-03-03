@@ -2,13 +2,20 @@ import webpush from 'web-push';
 import { Todo, PushSubscription } from '@shared/schema';
 import { storage } from '../storage';
 
-// Log OAuth2 client configuration (without exposing secrets)
-console.log("Configuring web-push with VAPID keys");
-
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.error("ERROR: Missing required Google OAuth credentials");
+// Configure web-push with VAPID keys
+if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  console.error("ERROR: Missing required VAPID keys for push notifications");
 } else {
-  console.log("Google OAuth credentials found");
+  try {
+    webpush.setVapidDetails(
+      'mailto:example@yourdomain.org',
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    );
+    console.log("Web Push configured successfully with VAPID keys");
+  } catch (error) {
+    console.error("Failed to configure web-push:", error);
+  }
 }
 
 export async function sendTaskNotification(
@@ -37,5 +44,53 @@ export async function sendTaskNotification(
       // Subscription has expired or is no longer valid
       console.log('Subscription is no longer valid:', subscription.endpoint);
     }
+  }
+}
+
+// Function to check and send notifications for upcoming tasks
+export async function checkAndNotifyTasks() {
+  try {
+    const todos = await storage.getTodos();
+    const now = new Date();
+    const fiveDaysFromNow = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+
+    // Find tasks that are either overdue or due within 5 days
+    const dueTasks = todos.filter(todo => {
+      if (!todo.dueDate || todo.completed) return false;
+      const dueDate = new Date(todo.dueDate);
+      return dueDate <= fiveDaysFromNow;
+    });
+
+    if (dueTasks.length === 0) {
+      console.log('No tasks due within 5 days');
+      return;
+    }
+
+    console.log(`Found ${dueTasks.length} tasks to notify about`);
+
+    // Get all users and their subscriptions
+    const users = await storage.getUsers();
+
+    for (const user of users) {
+      const subscriptions = await storage.getPushSubscriptions(user.id);
+
+      for (const subscription of subscriptions) {
+        // Only send notifications if haven't notified in last 24 hours
+        if (subscription.lastNotified) {
+          const lastNotified = new Date(subscription.lastNotified);
+          if (now.getTime() - lastNotified.getTime() < 24 * 60 * 60 * 1000) {
+            console.log(`Skipping notifications for subscription ${subscription.id} - already notified today`);
+            continue;
+          }
+        }
+
+        // Send notifications for each due task
+        for (const task of dueTasks) {
+          await sendTaskNotification(subscription, task);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking and sending notifications:', error);
   }
 }

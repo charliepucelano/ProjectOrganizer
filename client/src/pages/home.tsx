@@ -43,6 +43,27 @@ export default function Home() {
     }
   });
 
+  // Add mutation for testing notifications
+  const testNotificationsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/push/check-notifications");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Notifications Check",
+        description: "Checking for tasks that need notifications",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Notification Check Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   // Update the useEffect hook to handle detailed error messages
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -148,6 +169,14 @@ export default function Home() {
                   </>
                 )}
                 <PushNotifications />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => testNotificationsMutation.mutate()}
+                  disabled={testNotificationsMutation.isPending}
+                >
+                  Test Notifications
+                </Button>
               </div>
             </div>
           </CardContent>

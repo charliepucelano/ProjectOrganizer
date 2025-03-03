@@ -16,6 +16,7 @@ import {
   createCalendarEvent,
   syncAllTasks,
 } from "./services/calendar";
+import { checkAndNotifyTasks } from "./services/notifications";
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
@@ -445,6 +446,17 @@ export async function registerRoutes(app: Express) {
 
   app.get("/api/push/vapidKey", (_req, res) => {
     res.json({ vapidKey: process.env.VAPID_PUBLIC_KEY });
+  });
+
+  // Add a test endpoint to trigger notifications check
+  app.post("/api/push/check-notifications", requireAuth, async (req, res) => {
+    try {
+      await checkAndNotifyTasks();
+      res.json({ message: "Notifications check triggered successfully" });
+    } catch (error) {
+      console.error("Failed to check notifications:", error);
+      res.status(500).json({ error: "Failed to check notifications" });
+    }
   });
 
   const server = createServer(app);
