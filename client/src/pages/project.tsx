@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useLocation, useRoute, Link } from "wouter";
-import { ArrowLeft, Home, CalendarDays, DollarSign, ListTodo, Settings } from "lucide-react";
+import { ArrowLeft, Home, CalendarDays, DollarSign, ListTodo, Settings, Pencil, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,78 @@ export default function ProjectPage() {
     queryKey: [`/api/projects/${projectId}/expenses`],
     enabled: !!projectId && !!user
   });
+  
+  // State for editing an expense
+  const [editingExpense, setEditingExpense] = useState(null);
+  
+  // Mutation to toggle expense payment status
+  const toggleExpenseStatusMutation = useMutation({
+    mutationFn: async (expense) => {
+      // Toggle the isBudget status (0 = paid, 1 = unpaid)
+      const newStatus = expense.isBudget === 1 ? 0 : 1;
+      await apiRequest(
+        "PATCH",
+        `/api/expenses/${expense.id}`,
+        { 
+          isBudget: newStatus,
+          completedAt: newStatus === 0 ? new Date().toISOString() : null 
+        }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      toast({
+        title: "Success",
+        description: "Expense status updated"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update expense status",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Mutation to delete an expense
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId) => {
+      await apiRequest("DELETE", `/api/expenses/${expenseId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      toast({
+        title: "Success",
+        description: "Expense deleted successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete expense",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Function to toggle expense payment status
+  const toggleExpenseStatus = (expense) => {
+    toggleExpenseStatusMutation.mutate(expense);
+  };
+  
+  // Function to edit an expense
+  const editExpense = (expense) => {
+    setEditingExpense(expense);
+    setShowAddExpense(true);
+  };
+  
+  // Function to delete an expense
+  const deleteExpense = (expenseId) => {
+    if (confirm("Are you sure you want to delete this expense?")) {
+      deleteExpenseMutation.mutate(expenseId);
+    }
+  };
   
   // Query to get categories for this project
   const {
@@ -380,7 +453,10 @@ export default function ProjectPage() {
           <TabsContent value="expenses" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Budget & Expenses</h2>
-              <Button onClick={() => setShowAddExpense(!showAddExpense)}>
+              <Button onClick={() => {
+                setEditingExpense(null);
+                setShowAddExpense(!showAddExpense);
+              }}>
                 {showAddExpense ? "Cancel" : "Add Expense/Budget"}
               </Button>
             </div>
@@ -388,14 +464,19 @@ export default function ProjectPage() {
             {showAddExpense && (
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Add New Expense or Budget Item</CardTitle>
+                  <CardTitle>{editingExpense ? "Edit" : "Add New"} Expense or Budget Item</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ExpenseForm 
+                    expense={editingExpense}
                     projectId={projectId}
-                    onCancel={() => setShowAddExpense(false)}
+                    onCancel={() => {
+                      setShowAddExpense(false);
+                      setEditingExpense(null);
+                    }}
                     onSuccess={() => {
                       setShowAddExpense(false);
+                      setEditingExpense(null);
                       queryClient.invalidateQueries({ 
                         queryKey: [`/api/projects/${projectId}/expenses`] 
                       });
@@ -467,11 +548,33 @@ export default function ProjectPage() {
                               <td className="p-2">{expense.category}</td>
                               <td className="p-2">{expense.description}</td>
                               <td className="p-2 text-center">
-                                <Badge variant={expense.isBudget === 1 ? "outline" : "default"}>
+                                <Badge 
+                                  variant={expense.isBudget === 1 ? "outline" : "default"}
+                                  className="cursor-pointer"
+                                  onClick={() => toggleExpenseStatus(expense)}
+                                >
                                   {expense.isBudget === 1 ? "Unpaid" : "Paid"}
                                 </Badge>
                               </td>
                               <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
+                              <td className="p-2 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button 
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => editExpense(expense)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => deleteExpense(expense.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
