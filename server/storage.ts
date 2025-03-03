@@ -1,4 +1,4 @@
-import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription, Project, InsertProject } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription, Project, InsertProject, Note, InsertNote } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -38,6 +38,15 @@ export interface IStorage {
   deleteCustomCategory(id: number): Promise<void>;
   updateTodosWithCategory(projectId: number, oldCategory: string, newCategory: string): Promise<void>;
 
+  // Notes
+  getNotes(projectId: number): Promise<Note[]>;
+  getNoteById(id: number): Promise<Note>;
+  getNotesByTag(projectId: number, tag: string): Promise<Note[]>;
+  createNote(note: InsertNote): Promise<Note>;
+  updateNote(id: number, note: Partial<Note>): Promise<Note>;
+  deleteNote(id: number): Promise<void>;
+  searchNotes(projectId: number, query: string): Promise<Note[]>;
+
   // Session store
   sessionStore: session.Store;
 
@@ -53,11 +62,13 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private categories: Map<number, CustomCategory>;
   private projects: Map<number, Project>;
+  private notes: Map<number, Note>;
   private todoId: number;
   private expenseId: number;
   private userId: number;
   private categoryId: number;
   private projectId: number;
+  private noteId: number;
   private pushSubscriptions: Map<number, PushSubscription>;
   private pushSubscriptionId: number;
   readonly sessionStore: session.Store;
@@ -68,11 +79,13 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.categories = new Map();
     this.projects = new Map();
+    this.notes = new Map();
     this.todoId = 1;
     this.expenseId = 1;
     this.userId = 1;
     this.categoryId = 1;
     this.projectId = 1;
+    this.noteId = 1;
     this.pushSubscriptions = new Map();
     this.pushSubscriptionId = 1;
     this.sessionStore = new MemoryStore({
@@ -124,7 +137,7 @@ export class MemStorage implements IStorage {
   }
 
   async deleteProject(id: number): Promise<void> {
-    // Delete all associated todos, expenses, and categories
+    // Delete all associated todos, expenses, categories, and notes
     const todosToDelete = Array.from(this.todos.values())
       .filter(todo => todo.projectId === id);
     
@@ -133,6 +146,9 @@ export class MemStorage implements IStorage {
       
     const categoriesToDelete = Array.from(this.categories.values())
       .filter(category => category.projectId === id);
+      
+    const notesToDelete = Array.from(this.notes.values())
+      .filter(note => note.projectId === id);
     
     // Delete todos
     todosToDelete.forEach(todo => this.todos.delete(todo.id));
@@ -142,6 +158,9 @@ export class MemStorage implements IStorage {
     
     // Delete categories
     categoriesToDelete.forEach(category => this.categories.delete(category.id));
+    
+    // Delete notes
+    notesToDelete.forEach(note => this.notes.delete(note.id));
     
     // Finally delete the project
     this.projects.delete(id);
@@ -334,6 +353,67 @@ export class MemStorage implements IStorage {
       ...subscription,
       lastNotified: date
     });
+  }
+
+  // Note methods
+  async getNotes(projectId: number): Promise<Note[]> {
+    return Array.from(this.notes.values())
+      .filter(note => note.projectId === projectId);
+  }
+
+  async getNoteById(id: number): Promise<Note> {
+    const note = this.notes.get(id);
+    if (!note) throw new Error("Note not found");
+    return note;
+  }
+
+  async getNotesByTag(projectId: number, tag: string): Promise<Note[]> {
+    return Array.from(this.notes.values())
+      .filter(note => note.projectId === projectId && note.tags?.includes(tag));
+  }
+
+  async createNote(note: InsertNote): Promise<Note> {
+    const id = this.noteId++;
+    const now = new Date();
+    const newNote = {
+      ...note,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      tags: note.tags || [],
+      markdownContent: note.markdownContent || null,
+      attachments: note.attachments || null
+    };
+    this.notes.set(id, newNote);
+    return newNote;
+  }
+
+  async updateNote(id: number, update: Partial<Note>): Promise<Note> {
+    const note = this.notes.get(id);
+    if (!note) throw new Error("Note not found");
+
+    const updatedNote = {
+      ...note,
+      ...update,
+      updatedAt: new Date()
+    };
+    this.notes.set(id, updatedNote);
+    return updatedNote;
+  }
+
+  async deleteNote(id: number): Promise<void> {
+    this.notes.delete(id);
+  }
+
+  async searchNotes(projectId: number, query: string): Promise<Note[]> {
+    const lowercaseQuery = query.toLowerCase();
+    return Array.from(this.notes.values())
+      .filter(note => 
+        note.projectId === projectId && 
+        (note.title.toLowerCase().includes(lowercaseQuery) || 
+         note.content.toLowerCase().includes(lowercaseQuery) ||
+         note.tags?.some(tag => tag.toLowerCase().includes(lowercaseQuery)))
+      );
   }
 }
 

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, real, jsonb } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const defaultCategories = [
@@ -64,6 +64,19 @@ export const customCategories = pgTable("custom_categories", {
   projectId: integer("project_id").references(() => projects.id),
 });
 
+// Notes table for project-level notes
+export const notes = pgTable("notes", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  tags: text("tags").array(),
+  markdownContent: text("markdown_content"),
+  attachments: jsonb("attachments"),
+  projectId: integer("project_id").notNull().references(() => projects.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Add after the existing imports
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
@@ -118,6 +131,16 @@ export const insertUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+// Create note schema with validation
+export const insertNoteSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  tags: z.array(z.string()).optional(),
+  markdownContent: z.string().optional(),
+  attachments: z.any().optional(),
+  projectId: z.number().int(),
+});
+
 // Add to the existing types section
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
@@ -129,6 +152,8 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type CustomCategory = typeof customCategories.$inferSelect;
 export type InsertCustomCategory = z.infer<typeof insertCustomCategorySchema>;
+export type Note = typeof notes.$inferSelect;
+export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
