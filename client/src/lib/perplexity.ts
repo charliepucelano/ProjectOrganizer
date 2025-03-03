@@ -215,8 +215,11 @@ export function markdownToHtml(markdown: string): string {
     .replace(/^\s*- (.*$)/gim, '<ul><li>$1</li></ul>')
     .replace(/^\s*\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
     
-    // Links
-    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
+    // Markdown links
+    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    
+    // Plain URLs - converts URLs that are not already part of a markdown link
+    .replace(/(?<!\]\()(?<!\()(https?:\/\/[^\s]+)(?!\))/gim, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
     
     // Code blocks
     .replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>')
