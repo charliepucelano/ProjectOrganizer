@@ -1,37 +1,26 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertCustomCategorySchema, defaultCategories } from "@shared/schema";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
-import EditCategoryDialog from "./edit-category-dialog";
-import { Pencil, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { insertCustomCategorySchema } from "@shared/schema";
+import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface CategoryDialogProps {
   projectId?: number;
 }
 
 export default function CategoryDialog({ projectId }: CategoryDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const { toast } = useToast();
-
-  // Get categories - either global or project-specific
-  const { data: customCategories = [] } = useQuery({
-    queryKey: projectId ? [`/api/projects/${projectId}/categories`] : ["/api/categories"],
-    enabled: !!open // Only load when dialog is open
-  });
 
   const form = useForm({
     resolver: zodResolver(insertCustomCategorySchema),
@@ -53,32 +42,24 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
     },
     onSuccess: () => {
       if (projectId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/categories`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'categories'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'todos'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       }
       form.reset();
+      setOpen(false);
       toast({
-        title: "Success",
-        description: "Category created successfully"
+        title: t('categories.categoryCreated'),
+        description: t('categories.categoryCreatedDesc'),
       });
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/categories/${id}`);
     },
-    onSuccess: () => {
-      if (projectId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/categories`] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      }
-      setDeleteDialogOpen(false);
+    onError: (error) => {
       toast({
-        title: "Success",
-        description: "Category deleted successfully. All associated items have been moved to 'Unassigned'."
+        title: t('errors.unexpectedError'),
+        description: (error as Error).message,
+        variant: 'destructive',
       });
     }
   });
@@ -87,139 +68,46 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
     createMutation.mutate(values);
   };
 
-  const handleEditClick = (category: any) => {
-    setSelectedCategory(category);
-    setEditDialogOpen(true);
-  };
-
-  const handleDeleteClick = (category: any) => {
-    setSelectedCategory(category);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (selectedCategory) {
-      deleteMutation.mutate(selectedCategory.id);
-    }
-  };
-
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">Manage Categories</Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Categories</DialogTitle>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          {t('categories.addCategory')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{t('categories.addNewCategory')}</DialogTitle>
+        </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Add new category form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Add New Category</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormControl>
-                            <Input placeholder="New category name" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input 
+                      placeholder={t('categories.categoryNamePlaceholder')} 
+                      {...field} 
                     />
-                    <Button type="submit" disabled={createMutation.isPending}>
-                      {createMutation.isPending ? "Adding..." : "Add Category"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            {/* Default categories */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Default Categories</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {defaultCategories.map((category) => (
-                    <Badge key={category} variant="secondary">{category}</Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Custom categories with edit/delete */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Categories</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {customCategories.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No custom categories yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {customCategories.map((category: any) => (
-                      <div key={category.id} className="flex items-center justify-between p-2 border rounded-md">
-                        <span>{category.name}</span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditClick(category)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(category)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {selectedCategory && (
-        <>
-          <EditCategoryDialog 
-            category={selectedCategory} 
-            open={editDialogOpen} 
-            onOpenChange={setEditDialogOpen}
-          />
-
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will delete the category "{selectedCategory.name}". All items in this category will be moved to "Unassigned".
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      )}
-    </>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end">
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? t('common.adding') : t('common.add')}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

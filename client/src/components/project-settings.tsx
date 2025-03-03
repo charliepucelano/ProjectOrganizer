@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Tag } from 'lucide-react';
+import { Settings, Tag, Plus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { CustomCategory, Project } from '../../../shared/schema';
@@ -11,8 +11,7 @@ import CategoryDialog from './category-dialog';
 import EditCategoryDialog from './edit-category-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 import { defaultCategories } from '../../../shared/schema';
 
@@ -29,6 +28,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
   const [categoryToDelete, setCategoryToDelete] = useState<CustomCategory | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reassignCategory, setReassignCategory] = useState<string>('');
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   
   const queryClient = useQueryClient();
 
@@ -108,7 +108,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
   // Get all available categories (default + custom)
   const allCategories = [
     ...defaultCategories,
-    ...(customCategories?.map((cat: CustomCategory) => cat.name) || [])
+    ...(customCategories?.map?.((cat: CustomCategory) => cat.name) || [])
   ].filter((cat, index, self) => self.indexOf(cat) === index); // Remove duplicates
 
   return (
@@ -131,7 +131,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
             <CardHeader>
               <CardTitle>{t('categories.manageCategories')}</CardTitle>
               <CardDescription>
-                {t('categories.customCategories')}
+                {t('categories.manageProjectCategories')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -139,65 +139,57 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
                 <CategoryDialog projectId={projectId} />
               </div>
               
-              <div className="grid grid-cols-1 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('categories.defaultCategories')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[200px]">
-                      <div className="flex flex-wrap gap-2">
-                        {defaultCategories.map((category) => (
-                          <Badge key={category} variant="outline" className="text-sm py-1">
-                            {category}
-                          </Badge>
-                        ))}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('categories.allCategories')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {/* Show the Unassigned category first (read-only) */}
+                      <div className="flex items-center justify-between p-2 rounded-md border">
+                        <span>Unassigned</span>
+                        <Badge variant="secondary">{t('categories.default')}</Badge>
                       </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-                
-                <Separator />
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('categories.customCategories')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {customCategories?.length > 0 ? (
-                      <ScrollArea className="h-[200px]">
-                        <div className="space-y-2">
-                          {customCategories.map((category: CustomCategory) => (
-                            <div key={category.id} className="flex items-center justify-between p-2 rounded-md border">
-                              <span>{category.name}</span>
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleCategoryEdit(category)}
-                                >
-                                  {t('common.edit')}
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="destructive"
-                                  onClick={() => handleDeleteClick(category)}
-                                >
-                                  {t('common.delete')}
-                                </Button>
-                              </div>
+                      
+                      {/* Show the default categories not including Unassigned */}
+                      {Array.isArray(defaultCategories) && defaultCategories
+                        .filter(category => category !== "Unassigned")
+                        .map((category) => (
+                          <div key={category} className="flex items-center justify-between p-2 rounded-md border">
+                            <span>{category}</span>
+                            <Badge variant="outline">{t('categories.standard')}</Badge>
+                          </div>
+                      ))}
+                      
+                      {/* Then show any custom categories the user has added */}
+                      {Array.isArray(customCategories) && customCategories.length > 0 && 
+                        customCategories.map((category: CustomCategory) => (
+                          <div key={category.id} className="flex items-center justify-between p-2 rounded-md border">
+                            <span>{category.name}</span>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleCategoryEdit(category)}
+                              >
+                                {t('common.edit')}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => handleDeleteClick(category)}
+                              >
+                                {t('common.delete')}
+                              </Button>
                             </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        {t('categories.noCategories')}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,8 +1,8 @@
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -20,26 +20,44 @@ interface EditCategoryDialogProps {
 }
 
 export default function EditCategoryDialog({ category, open, onOpenChange }: EditCategoryDialogProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   const form = useForm({
     resolver: zodResolver(insertCustomCategorySchema),
     defaultValues: {
       name: category.name,
+      projectId: category.projectId
     }
   });
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      await apiRequest("PUT", `/api/categories/${category.id}`, values);
+      await apiRequest("PATCH", `/api/categories/${category.id}`, values);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      // Invalidate relevant queries
+      if (category.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', category.projectId, 'categories'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', category.projectId, 'todos'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', category.projectId, 'expenses'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      }
+      
       onOpenChange(false);
       form.reset();
+      
       toast({
-        title: "Success",
-        description: "Category updated successfully"
+        title: t('categories.categoryUpdated'),
+        description: t('categories.categoryUpdatedDesc')
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: t('errors.unexpectedError'),
+        description: (error as Error).message,
+        variant: 'destructive',
       });
     }
   });
@@ -52,7 +70,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Category</DialogTitle>
+          <DialogTitle>{t('categories.editCategory')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -61,7 +79,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category Name</FormLabel>
+                  <FormLabel>{t('categories.categoryName')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -69,9 +87,11 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
               )}
             />
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {t('common.cancel')}
+              </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Saving..." : "Save Changes"}
+                {mutation.isPending ? t('common.saving') : t('common.saveChanges')}
               </Button>
             </div>
           </form>
