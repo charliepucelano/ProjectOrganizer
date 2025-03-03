@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Tag } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { CustomCategory, Project } from 'shared/schema';
+import { CustomCategory, Project } from '../../../shared/schema';
 import CategoryDialog from './category-dialog';
 import EditCategoryDialog from './edit-category-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { defaultExpenseCategories, defaultTodoCategories } from 'shared/schema';
+import { defaultExpenseCategories, defaultTodoCategories } from '../../../shared/schema';
 
 interface ProjectSettingsProps {
   projectId: number;
@@ -41,9 +41,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
   // Mutation to delete a category
   const deleteCategoryMutation = useMutation({
     mutationFn: async (categoryId: number) => {
-      await apiRequest(`/api/categories/${categoryId}`, {
-        method: 'DELETE',
-      });
+      await apiRequest('DELETE', `/api/categories/${categoryId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'categories'] });
@@ -70,10 +68,11 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
 
     try {
       // First update all items with the old category to the new category
-      await apiRequest(`/api/categories/${categoryToDelete.id}/reassign`, {
-        method: 'PATCH',
-        body: JSON.stringify({ newCategory: reassignCategory }),
-      });
+      await apiRequest(
+        'PATCH',
+        `/api/categories/${categoryToDelete.id}/reassign`,
+        { newCategory: reassignCategory }
+      );
       
       // Then delete the category
       await deleteCategoryMutation.mutateAsync(categoryToDelete.id);

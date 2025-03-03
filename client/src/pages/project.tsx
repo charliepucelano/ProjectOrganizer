@@ -727,6 +727,10 @@ export default function ProjectPage() {
               </CardContent>
             </Card>
           </TabsContent>
+          
+          <TabsContent value="settings" className="space-y-4">
+            {project && <ProjectSettings projectId={projectId} project={project} />}
+          </TabsContent>
         </Tabs>
       </div>
       
