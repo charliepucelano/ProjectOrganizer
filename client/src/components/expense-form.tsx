@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { insertExpenseSchema, defaultExpenseCategories } from "@shared/schema";
+import { insertExpenseSchema, defaultCategories } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function ExpenseForm({ expense, onCancel, projectId, onSuccess }:
 
   // Combine default categories with custom categories
   const allExpenseCategories = [
-    ...defaultExpenseCategories,
+    ...defaultCategories,
     ...(customCategories?.map ? customCategories.map((c: any) => c.name) : [])
   ];
   

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
+import { insertTodoSchema, defaultCategories } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,8 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
 
   // Combine default categories with custom categories, making sure there are no duplicates
   const allCategories = projectId && customCategories.length > 0
-    ? [...defaultTodoCategories, ...customCategories.map((cat: any) => cat.name)]
-    : defaultTodoCategories;
+    ? [...defaultCategories, ...customCategories.map((cat: any) => cat.name)]
+    : defaultCategories;
     
   // Remove duplicates by converting to Set and back to array
   const categories = [...new Set(allCategories)];

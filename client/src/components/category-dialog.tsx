@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertCustomCategorySchema, defaultTodoCategories } from "@shared/schema";
+import { insertCustomCategorySchema, defaultCategories } from "@shared/schema";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import EditCategoryDialog from "./edit-category-dialog";
 import { Pencil, Trash2 } from "lucide-react";
