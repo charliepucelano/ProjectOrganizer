@@ -274,12 +274,27 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
 
   const createMutation = useMutation({
     mutationFn: async (data: { title: string; content: string; tags: string[]; projectId: number }) => {
-      const response = await apiRequest(
-        "/api/notes",
-        "POST",
-        JSON.stringify(data)
-      );
-      return response.json();
+      console.log("Creating note with data:", data);
+      try {
+        const response = await fetch("/api/notes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data),
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create note");
+        }
+        
+        return response.json();
+      } catch (err) {
+        console.error("Error creating note:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
@@ -290,9 +305,10 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
       onClose();
     },
     onError: (error: Error) => {
+      console.error("Create mutation error:", error);
       toast({
         title: t("error") || "Error",
-        description: error.message,
+        description: error.message || "Failed to create note",
         variant: "destructive",
       });
     },
@@ -300,12 +316,27 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
 
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; title: string; content: string; tags: string[] }) => {
-      const response = await apiRequest(
-        `/api/notes/${data.id}`,
-        "PATCH",
-        JSON.stringify(data)
-      );
-      return response.json();
+      console.log("Updating note with data:", data);
+      try {
+        const response = await fetch(`/api/notes/${data.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data),
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to update note");
+        }
+        
+        return response.json();
+      } catch (err) {
+        console.error("Error updating note:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
@@ -316,9 +347,10 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
       onClose();
     },
     onError: (error: Error) => {
+      console.error("Update mutation error:", error);
       toast({
         title: t("error") || "Error",
-        description: error.message,
+        description: error.message || "Failed to update note",
         variant: "destructive",
       });
     },
@@ -628,19 +660,36 @@ function NotesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/notes/${id}`, "DELETE");
+      console.log("Deleting note with ID:", id);
+      try {
+        const response = await fetch(`/api/notes/${id}`, {
+          method: "DELETE",
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to delete note");
+        }
+        
+        return true;
+      } catch (err) {
+        console.error("Error deleting note:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
       toast({
-        title: t("noteDeleted"),
-        description: t("noteDeletedDescription"),
+        title: t("noteDeleted") || "Note Deleted",
+        description: t("noteDeletedDescription") || "Your note has been deleted successfully.",
       });
     },
     onError: (error: Error) => {
+      console.error("Delete mutation error:", error);
       toast({
-        title: t("error"),
-        description: error.message,
+        title: t("error") || "Error",
+        description: error.message || "Failed to delete note",
         variant: "destructive",
       });
     },
