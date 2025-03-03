@@ -16,7 +16,6 @@ import {
   createCalendarEvent,
   syncAllTasks,
 } from "./services/calendar";
-import { checkAndNotifyDueTasks } from "./services/notifications";
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
@@ -449,12 +448,5 @@ export async function registerRoutes(app: Express) {
   });
 
   const server = createServer(app);
-
-  // Set up notification checking only after server is created
-  server.on('listening', () => {
-    console.log('Setting up notification scheduler');
-    setInterval(checkAndNotifyDueTasks, 60 * 60 * 1000); // Check every hour
-  });
-
   return server;
 }
