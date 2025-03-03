@@ -174,6 +174,7 @@ export async function expandNote(content: string, title: string, tags: string[] 
   - NEVER use numbered citation references like [1], [2], etc.
   - For each fact or detail you add, try to include a real, working URL where the user could learn more
   - Format your response with proper Markdown, including headings (##), bullet points, and emphasis where appropriate
+  - DO NOT include references or citations at the end of each paragraph
   - Do not include a separate References section at the end
   
   Please provide only the expanded content, not the original, and format it to be easy to read.`;
@@ -182,7 +183,7 @@ export async function expandNote(content: string, title: string, tags: string[] 
     const data = await callPerplexityAPI([
       {
         role: "system",
-        content: "You are a helpful assistant that expands notes with relevant and meaningful information. Always provide real, clickable URLs for sources instead of citation references like [1], [2], etc."
+        content: "You are a helpful assistant that expands notes with relevant and meaningful information. Always provide real, clickable URLs for sources instead of citation references like [1], [2], etc. Do not add citation numbers like [1] at the end of paragraphs."
       },
       {
         role: "user",
@@ -190,12 +191,19 @@ export async function expandNote(content: string, title: string, tags: string[] 
       }
     ], DEFAULT_MODEL, 0.5); // Using slightly higher temperature for creativity
     
-    const responseContent = data.choices[0].message.content;
+    let responseContent = data.choices[0].message.content;
     
     // Debug log to see what Perplexity is returning
     console.log("=== PERPLEXITY API RESPONSE ===");
     console.log(responseContent);
     console.log("===============================");
+    
+    // Process the response to remove any citation references that might still be present
+    responseContent = responseContent.replace(/\[(\d+)\](?!\()/g, '');
+    
+    // Remove any trailing whitespace after removing citations
+    responseContent = responseContent.replace(/\s+\./g, '.');
+    responseContent = responseContent.replace(/\s+,/g, ',');
     
     return responseContent;
   } catch (error) {
