@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User } from "@shared/schema";
+import { User, UserRole } from "@shared/schema";
 import createMemoryStore from "memorystore";
 
 declare global {
@@ -142,4 +142,97 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   res.status(401).json({ error: "Authentication required" });
+}
+
+// Check if user has access to a project with minimum role
+export function requireProjectAccess(minRole: string = UserRole.VIEWER) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    const projectId = parseInt(req.params.projectId || req.params.id);
+    if (isNaN(projectId)) {
+      return res.status(400).json({ error: "Invalid project ID" });
+    }
+    
+    try {
+      // First check if user is the owner (legacy check)
+      const project = await storage.getProject(projectId);
+      if (project.userId === req.user!.id) {
+        return next();
+      }
+      
+      // Otherwise check project membership
+      const role = await storage.getUserRole(projectId, req.user!.id);
+      if (!role) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      // Check role permissions
+      if (minRole === UserRole.OWNER && role !== UserRole.OWNER) {
+        return res.status(403).json({ error: "Only the project owner can perform this action" });
+      }
+      
+      if (minRole === UserRole.EDITOR && 
+          (role !== UserRole.OWNER && role !== UserRole.EDITOR)) {
+        return res.status(403).json({ error: "Editor access required for this action" });
+      }
+      
+      // User has appropriate role
+      return next();
+    } catch (error) {
+      console.error("Error checking project access:", error);
+      return res.status(404).json({ error: "Project not found" });
+    }
+  };
+}
+
+// Check if user has access to specific resource (note, todo, expense, etc.)
+export function requireResourceAccess(resourceType: string, minRole: string = UserRole.VIEWER) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    const resourceId = parseInt(req.params.id);
+    if (isNaN(resourceId)) {
+      return res.status(400).json({ error: `Invalid ${resourceType} ID` });
+    }
+    
+    try {
+      let projectId: number;
+      
+      // Get the project ID for the requested resource
+      switch (resourceType) {
+        case 'note':
+          const note = await storage.getNoteById(resourceId);
+          projectId = note.projectId;
+          break;
+        case 'todo':
+          const todo = await storage.getTodo(resourceId);
+          projectId = todo.projectId!;
+          break;
+        case 'expense':
+          const expense = await storage.getExpense(resourceId);
+          projectId = expense.projectId!;
+          break;
+        case 'category':
+          const category = await storage.getCategory(resourceId);
+          projectId = category.projectId!;
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid resource type" });
+      }
+      
+      // Check project access with the required role
+      const checkAccess = requireProjectAccess(minRole);
+      req.params.projectId = projectId.toString();
+      return checkAccess(req, res, next);
+      
+    } catch (error) {
+      console.error(`Error checking ${resourceType} access:`, error);
+      return res.status(404).json({ error: `${resourceType} not found` });
+    }
+  };
 }

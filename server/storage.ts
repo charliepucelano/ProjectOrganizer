@@ -1,4 +1,4 @@
-import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription, Project, InsertProject, Note, InsertNote } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription, Project, InsertProject, Note, InsertNote, ProjectMember, InsertProjectMember, UserRole } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -11,15 +11,27 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, project: Partial<Project>): Promise<Project>;
   deleteProject(id: number): Promise<void>;
+  
+  // Project Members (for sharing)
+  getProjectMembers(projectId: number): Promise<ProjectMember[]>;
+  getProjectMember(projectId: number, userId: number): Promise<ProjectMember | null>;
+  addProjectMember(member: InsertProjectMember): Promise<ProjectMember>;
+  updateProjectMemberRole(projectId: number, userId: number, role: string): Promise<ProjectMember>;
+  removeProjectMember(projectId: number, userId: number): Promise<void>;
+  isUserProjectMember(projectId: number, userId: number): Promise<boolean>;
+  getUserRole(projectId: number, userId: number): Promise<string | null>;
+  getSharedProjects(userId: number): Promise<Project[]>;
 
   // Todos
   getTodos(projectId: number): Promise<Todo[]>;
+  getTodo(id: number): Promise<Todo>;
   createTodo(todo: InsertTodo): Promise<Todo>;
   updateTodo(id: number, todo: Partial<Todo>): Promise<Todo>;
   deleteTodo(id: number): Promise<void>;
 
   // Expenses
   getExpenses(projectId: number): Promise<Expense[]>;
+  getExpense(id: number): Promise<Expense>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, expense: Partial<Expense>): Promise<Expense>;
   deleteExpense(id: number): Promise<void>;
@@ -33,6 +45,7 @@ export interface IStorage {
 
   // Categories
   getCustomCategories(projectId: number): Promise<CustomCategory[]>;
+  getCategory(id: number): Promise<CustomCategory>;
   createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
   updateCustomCategory(id: number, data: InsertCustomCategory): Promise<CustomCategory>;
   deleteCustomCategory(id: number): Promise<void>;
@@ -63,12 +76,14 @@ export class MemStorage implements IStorage {
   private categories: Map<number, CustomCategory>;
   private projects: Map<number, Project>;
   private notes: Map<number, Note>;
+  private projectMembers: Map<number, ProjectMember>;
   private todoId: number;
   private expenseId: number;
   private userId: number;
   private categoryId: number;
   private projectId: number;
   private noteId: number;
+  private projectMemberId: number;
   private pushSubscriptions: Map<number, PushSubscription>;
   private pushSubscriptionId: number;
   readonly sessionStore: session.Store;
@@ -80,12 +95,14 @@ export class MemStorage implements IStorage {
     this.categories = new Map();
     this.projects = new Map();
     this.notes = new Map();
+    this.projectMembers = new Map();
     this.todoId = 1;
     this.expenseId = 1;
     this.userId = 1;
     this.categoryId = 1;
     this.projectId = 1;
     this.noteId = 1;
+    this.projectMemberId = 1;
     this.pushSubscriptions = new Map();
     this.pushSubscriptionId = 1;
     this.sessionStore = new MemoryStore({
@@ -122,6 +139,13 @@ export class MemStorage implements IStorage {
       this.createCustomCategory({ name, projectId: id });
     });
     
+    // Add the creator as an owner of the project
+    this.addProjectMember({
+      projectId: id,
+      userId: project.userId,
+      role: UserRole.OWNER
+    });
+    
     return newProject;
   }
 
@@ -137,7 +161,7 @@ export class MemStorage implements IStorage {
   }
 
   async deleteProject(id: number): Promise<void> {
-    // Delete all associated todos, expenses, categories, and notes
+    // Delete all associated todos, expenses, categories, notes, and members
     const todosToDelete = Array.from(this.todos.values())
       .filter(todo => todo.projectId === id);
     
@@ -149,6 +173,9 @@ export class MemStorage implements IStorage {
       
     const notesToDelete = Array.from(this.notes.values())
       .filter(note => note.projectId === id);
+      
+    const membersToDelete = Array.from(this.projectMembers.values())
+      .filter(member => member.projectId === id);
     
     // Delete todos
     todosToDelete.forEach(todo => this.todos.delete(todo.id));
@@ -162,8 +189,97 @@ export class MemStorage implements IStorage {
     // Delete notes
     notesToDelete.forEach(note => this.notes.delete(note.id));
     
+    // Delete project members
+    membersToDelete.forEach(member => this.projectMembers.delete(member.id));
+    
     // Finally delete the project
     this.projects.delete(id);
+  }
+  
+  // Project Member methods for sharing
+  async getProjectMembers(projectId: number): Promise<ProjectMember[]> {
+    return Array.from(this.projectMembers.values())
+      .filter(member => member.projectId === projectId);
+  }
+  
+  async getProjectMember(projectId: number, userId: number): Promise<ProjectMember | null> {
+    const members = await this.getProjectMembers(projectId);
+    return members.find(member => member.userId === userId) || null;
+  }
+  
+  async addProjectMember(member: InsertProjectMember): Promise<ProjectMember> {
+    // Check if this user is already a member of the project
+    const existingMember = await this.getProjectMember(member.projectId, member.userId);
+    if (existingMember) {
+      // Update their role if they already exist
+      return this.updateProjectMemberRole(member.projectId, member.userId, member.role);
+    }
+    
+    const id = this.projectMemberId++;
+    const now = new Date();
+    const newMember: ProjectMember = {
+      ...member,
+      id,
+      joinedAt: now
+    };
+    
+    this.projectMembers.set(id, newMember);
+    return newMember;
+  }
+  
+  async updateProjectMemberRole(projectId: number, userId: number, role: string): Promise<ProjectMember> {
+    const member = await this.getProjectMember(projectId, userId);
+    if (!member) {
+      throw new Error("Project member not found");
+    }
+    
+    const updatedMember = {
+      ...member,
+      role
+    };
+    
+    this.projectMembers.set(member.id, updatedMember);
+    return updatedMember;
+  }
+  
+  async removeProjectMember(projectId: number, userId: number): Promise<void> {
+    const member = await this.getProjectMember(projectId, userId);
+    if (!member) {
+      throw new Error("Project member not found");
+    }
+    
+    // Don't allow removing the owner
+    if (member.role === UserRole.OWNER) {
+      throw new Error("Cannot remove the project owner");
+    }
+    
+    this.projectMembers.delete(member.id);
+  }
+  
+  async isUserProjectMember(projectId: number, userId: number): Promise<boolean> {
+    const member = await this.getProjectMember(projectId, userId);
+    return member !== null;
+  }
+  
+  async getUserRole(projectId: number, userId: number): Promise<string | null> {
+    const member = await this.getProjectMember(projectId, userId);
+    return member ? member.role : null;
+  }
+  
+  async getSharedProjects(userId: number): Promise<Project[]> {
+    const memberRecords = Array.from(this.projectMembers.values())
+      .filter(member => member.userId === userId && member.role !== UserRole.OWNER);
+      
+    // Now get the actual projects
+    const projects: Project[] = [];
+    for (const member of memberRecords) {
+      const project = this.projects.get(member.projectId);
+      if (project) {
+        projects.push(project);
+      }
+    }
+    
+    return projects;
   }
 
   // User methods
@@ -208,6 +324,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.todos.values())
       .filter(todo => todo.projectId === projectId);
   }
+  
+  async getTodo(id: number): Promise<Todo> {
+    const todo = this.todos.get(id);
+    if (!todo) throw new Error("Todo not found");
+    return todo;
+  }
 
   async createTodo(todo: InsertTodo): Promise<Todo> {
     const id = this.todoId++;
@@ -245,6 +367,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.expenses.values())
       .filter(expense => expense.projectId === projectId);
   }
+  
+  async getExpense(id: number): Promise<Expense> {
+    const expense = this.expenses.get(id);
+    if (!expense) throw new Error("Expense not found");
+    return expense;
+  }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const id = this.expenseId++;
@@ -278,6 +406,12 @@ export class MemStorage implements IStorage {
   async getCustomCategories(projectId: number): Promise<CustomCategory[]> {
     return Array.from(this.categories.values())
       .filter(category => category.projectId === projectId);
+  }
+  
+  async getCategory(id: number): Promise<CustomCategory> {
+    const category = this.categories.get(id);
+    if (!category) throw new Error("Category not found");
+    return category;
   }
 
   async createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory> {
