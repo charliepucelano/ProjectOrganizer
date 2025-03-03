@@ -163,11 +163,11 @@ export default function ProjectPage() {
   const toggleExpenseStatus = (expense) => {
     // If we're marking as paid, show confirmation dialog
     if (expense.isBudget === 1) {
-      setExpenseToToggle(expense);
+      setExpenseToToggle({...expense}); // Create a copy to avoid reference issues
       setShowPaymentDialog(true);
     } else {
       // If we're marking as unpaid, just do it directly
-      toggleExpenseStatusMutation.mutate(expense);
+      toggleExpenseStatusMutation.mutate({...expense}); // Create a copy to avoid reference issues
     }
   };
   
@@ -540,13 +540,16 @@ export default function ProjectPage() {
               </Card>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">${totalBudget.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Planned budget for this project
+                  </p>
                 </CardContent>
               </Card>
               
@@ -556,17 +559,11 @@ export default function ProjectPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">${totalSpent.toFixed(2)}</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Remaining</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    ${(totalBudget - totalSpent).toFixed(2)}
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {totalBudget > 0 
+                      ? `${Math.round((totalSpent / totalBudget) * 100)}% of budget` 
+                      : "No budget set"}
+                  </p>
                 </CardContent>
               </Card>
             </div>
