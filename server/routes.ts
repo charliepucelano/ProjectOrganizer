@@ -8,6 +8,8 @@ import {
   insertPushSubscriptionSchema,
   insertProjectSchema,
   insertCustomCategorySchema,
+  insertNoteSchema,
+  ZodError,
 } from "@shared/schema";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
@@ -19,6 +21,11 @@ import {
   syncAllTasks,
 } from "./services/calendar";
 import { checkAndNotifyTasks } from "./services/notifications";
+
+// Helper function to format Zod validation errors
+function formatZodError(err: ZodError): string {
+  return err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+}
 
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
