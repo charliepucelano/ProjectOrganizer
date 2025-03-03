@@ -292,15 +292,9 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.post("/api/projects/:projectId/categories", requireAuth, async (req, res) => {
+  app.post("/api/projects/:projectId/categories", requireProjectAccess(UserRole.EDITOR), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
-      
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(projectId);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
       
       const { name } = req.body;
       if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -415,19 +409,14 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/todos", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/todos", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
-      
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(projectId);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // The middleware has already checked access permissions
       const todos = await storage.getTodos(projectId);
       res.json(todos);
     } catch (error) {
+      console.error("Error getting todos:", error);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -456,24 +445,43 @@ export async function registerRoutes(app: Express) {
    *       400:
    *         description: Invalid todo data
    */
-  app.post("/api/todos", async (req, res) => {
-    const parsed = insertTodoSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error });
-    }
-    const todo = await storage.createTodo(parsed.data);
-
-    // Create calendar event if the user has Google Calendar connected
-    if (req.user?.googleAccessToken && todo.dueDate) {
-      try {
-        await createCalendarEvent(todo);
-      } catch (error) {
-        console.error("Failed to create calendar event:", error);
-        // Continue even if calendar event creation fails
+  app.post("/api/todos", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertTodoSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error });
       }
-    }
+      
+      // Check if user has access to the project with at least EDITOR role
+      const projectId = parsed.data.projectId;
+      if (projectId) {
+        const userRole = await storage.getUserRole(projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to create todos" });
+        }
+      }
+      
+      const todo = await storage.createTodo(parsed.data);
 
-    res.json(todo);
+      // Create calendar event if the user has Google Calendar connected
+      if (req.user?.googleAccessToken && todo.dueDate) {
+        try {
+          await createCalendarEvent(todo);
+        } catch (error) {
+          console.error("Failed to create calendar event:", error);
+          // Continue even if calendar event creation fails
+        }
+      }
+
+      res.json(todo);
+    } catch (error) {
+      console.error("Error creating todo:", error);
+      res.status(500).json({ error: "Failed to create todo" });
+    }
   });
 
   /**
@@ -502,12 +510,28 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Todo not found
    */
-  app.patch("/api/todos/:id", async (req, res) => {
+  app.patch("/api/todos/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     try {
+      // Get the todo to check project access
+      const existingTodo = await storage.getTodo(id);
+      
+      // Check if the todo has a project and if user has proper access
+      if (existingTodo.projectId) {
+        const userRole = await storage.getUserRole(existingTodo.projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to update todos" });
+        }
+      }
+      
       const todo = await storage.updateTodo(id, req.body);
       res.json(todo);
     } catch (e) {
+      console.error("Error updating todo:", e);
       res.status(404).json({ error: "Todo not found" });
     }
   });
@@ -530,10 +554,30 @@ export async function registerRoutes(app: Express) {
    *       204:
    *         description: Todo deleted successfully
    */
-  app.delete("/api/todos/:id", async (req, res) => {
+  app.delete("/api/todos/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
-    await storage.deleteTodo(id);
-    res.status(204).end();
+    try {
+      // Get the todo to check project access
+      const existingTodo = await storage.getTodo(id);
+      
+      // Check if the todo has a project and if user has proper access
+      if (existingTodo.projectId) {
+        const userRole = await storage.getUserRole(existingTodo.projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to delete todos" });
+        }
+      }
+      
+      await storage.deleteTodo(id);
+      res.status(204).end();
+    } catch (e) {
+      console.error("Error deleting todo:", e);
+      res.status(404).json({ error: "Todo not found" });
+    }
   });
 
   /**
@@ -564,19 +608,14 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/expenses", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/expenses", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
-      
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(projectId);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // The middleware has already checked access permissions
       const expenses = await storage.getExpenses(projectId);
       res.json(expenses);
     } catch (error) {
+      console.error("Error getting expenses:", error);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -605,13 +644,32 @@ export async function registerRoutes(app: Express) {
    *       400:
    *         description: Invalid expense data
    */
-  app.post("/api/expenses", async (req, res) => {
-    const parsed = insertExpenseSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error });
+  app.post("/api/expenses", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertExpenseSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error });
+      }
+      
+      // Check if user has access to the project with at least EDITOR role
+      const projectId = parsed.data.projectId;
+      if (projectId) {
+        const userRole = await storage.getUserRole(projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to create expenses" });
+        }
+      }
+      
+      const expense = await storage.createExpense(parsed.data);
+      res.json(expense);
+    } catch (error) {
+      console.error("Error creating expense:", error);
+      res.status(500).json({ error: "Failed to create expense" });
     }
-    const expense = await storage.createExpense(parsed.data);
-    res.json(expense);
   });
 
   /**
@@ -640,12 +698,28 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Expense not found
    */
-  app.patch("/api/expenses/:id", async (req, res) => {
+  app.patch("/api/expenses/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     try {
+      // Get the expense to check project access
+      const existingExpense = await storage.getExpense(id);
+      
+      // Check if the expense has a project and if user has proper access
+      if (existingExpense.projectId) {
+        const userRole = await storage.getUserRole(existingExpense.projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to update expenses" });
+        }
+      }
+      
       const expense = await storage.updateExpense(id, req.body);
       res.json(expense);
     } catch (e) {
+      console.error("Error updating expense:", e);
       res.status(404).json({ error: "Expense not found" });
     }
   });
@@ -668,10 +742,30 @@ export async function registerRoutes(app: Express) {
    *       204:
    *         description: Expense deleted successfully
    */
-  app.delete("/api/expenses/:id", async (req, res) => {
+  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
-    await storage.deleteExpense(id);
-    res.status(204).end();
+    try {
+      // Get the expense to check project access
+      const existingExpense = await storage.getExpense(id);
+      
+      // Check if the expense has a project and if user has proper access
+      if (existingExpense.projectId) {
+        const userRole = await storage.getUserRole(existingExpense.projectId, req.user!.id);
+        if (!userRole) {
+          return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to delete expenses" });
+        }
+      }
+      
+      await storage.deleteExpense(id);
+      res.status(204).end();
+    } catch (e) {
+      console.error("Error deleting expense:", e);
+      res.status(404).json({ error: "Expense not found" });
+    }
   });
 
   /**
@@ -770,19 +864,14 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/notes", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/notes", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
-      const project = await storage.getProject(projectId);
-      const user = req.user!;
-      
-      if (project.userId !== user.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // The middleware has already checked access permissions
       const notes = await storage.getNotes(projectId);
       res.json(notes);
     } catch (err) {
+      console.error("Error getting notes:", err);
       res.status(404).json({ error: "Project not found" });
     }
   });
