@@ -16,30 +16,47 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 
-export default function CategoryDialog() {
+interface CategoryDialogProps {
+  projectId?: number;
+}
+
+export default function CategoryDialog({ projectId }: CategoryDialogProps) {
   const [open, setOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const { toast } = useToast();
 
+  // Get categories - either global or project-specific
   const { data: customCategories = [] } = useQuery({
-    queryKey: ["/api/categories"]
+    queryKey: projectId ? [`/api/projects/${projectId}/categories`] : ["/api/categories"],
+    enabled: !!open // Only load when dialog is open
   });
 
   const form = useForm({
     resolver: zodResolver(insertCustomCategorySchema),
     defaultValues: {
       name: "",
+      projectId: projectId || null
     }
   });
 
   const createMutation = useMutation({
     mutationFn: async (values: any) => {
-      await apiRequest("POST", "/api/categories", values);
+      if (projectId) {
+        // Project-specific category
+        await apiRequest("POST", `/api/projects/${projectId}/categories`, { name: values.name });
+      } else {
+        // Global category
+        await apiRequest("POST", "/api/categories", { name: values.name });
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/categories`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      }
       form.reset();
       toast({
         title: "Success",
@@ -53,7 +70,11 @@ export default function CategoryDialog() {
       await apiRequest("DELETE", `/api/categories/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/categories`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      }
       setDeleteDialogOpen(false);
       toast({
         title: "Success",

@@ -14,16 +14,29 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: () => void }) {
+interface TodoFormProps {
+  todo?: any; 
+  onCancel?: () => void;
+  projectId?: number;
+  onSuccess?: () => void;
+}
+
+export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoFormProps) {
   const { toast } = useToast();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get categories
-  const { data: categories = [] } = useQuery<string[]>({
-    queryKey: ["/api/categories"]
+  // Get categories - either global or project-specific
+  const { data: customCategories = [] } = useQuery({
+    queryKey: projectId ? [`/api/projects/${projectId}/categories`] : ["/api/categories"],
+    enabled: !!projectId
   });
+
+  // Combine default categories with custom categories
+  const categories = projectId 
+    ? [...defaultTodoCategories, ...customCategories.map((cat: any) => cat.name)]
+    : defaultTodoCategories;
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),
@@ -35,7 +48,8 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       dueDate: null,
       priority: 0,
       hasAssociatedExpense: 0,
-      estimatedAmount: null
+      estimatedAmount: null,
+      projectId: projectId || null
     }
   });
 
@@ -53,7 +67,8 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
           estimatedAmount: values.estimatedAmount ? Number(values.estimatedAmount) : null,
           hasAssociatedExpense: values.hasAssociatedExpense ? 1 : 0,
           priority: values.priority ? 1 : 0,
-          category: values.category || "Unassigned"
+          category: values.category || "Unassigned",
+          projectId: projectId || null
         });
 
         const todoData = await todoResponse.json();
@@ -66,7 +81,8 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
             date: values.dueDate || new Date().toISOString(),
             todoId: todoData.id,
             isBudget: 1,
-            completedAt: null
+            completedAt: null,
+            projectId: projectId || null
           });
         }
         return todoData;
@@ -75,10 +91,19 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      // Invalidate the appropriate queries
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/todos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      }
+      
       if (!todo) form.reset();
       if (onCancel) onCancel();
+      if (onSuccess) onSuccess();
+      
       toast({
         title: "Success",
         description: todo ? "Task updated successfully" : "Task created successfully"
@@ -88,7 +113,15 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
 
   const categoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await apiRequest("POST", "/api/categories", { name });
+      let response;
+      if (projectId) {
+        // Create project-specific category
+        response = await apiRequest("POST", `/api/projects/${projectId}/categories`, { name });
+      } else {
+        // Create global category
+        response = await apiRequest("POST", "/api/categories", { name });
+      }
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to create category');
@@ -96,7 +129,12 @@ export default function TodoForm({ todo, onCancel }: { todo?: any; onCancel?: ()
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/categories`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      }
+      
       // Auto-select the newly created category
       form.setValue("category", data.name);
       setIsAddingCategory(false);

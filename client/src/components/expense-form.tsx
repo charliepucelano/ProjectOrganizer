@@ -9,16 +9,27 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 
-export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCancel?: () => void }) {
+interface ExpenseFormProps {
+  expense?: any;
+  onCancel?: () => void;
+  projectId?: number;
+  onSuccess?: () => void;
+}
+
+export default function ExpenseForm({ expense, onCancel, projectId, onSuccess }: ExpenseFormProps) {
   const { toast } = useToast();
-  const { data: customCategories } = useQuery({
-    queryKey: ["/api/categories"]
+  
+  // Get categories - either global or project-specific
+  const { data: customCategories = [] } = useQuery({
+    queryKey: projectId ? [`/api/projects/${projectId}/categories`] : ["/api/categories"],
+    enabled: !!projectId
   });
 
   const expenseCategories = [
     ...defaultExpenseCategories,
-    ...(customCategories?.map(c => c.name) || [])
+    ...(customCategories?.map ? customCategories.map((c: any) => c.name) : [])
   ];
 
   const form = useForm({
@@ -27,7 +38,11 @@ export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCa
       description: "",
       amount: 0,
       category: "Other",
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      isBudget: 0,
+      todoId: null,
+      completedAt: null,
+      projectId: projectId || null
     }
   });
 
@@ -35,12 +50,23 @@ export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCa
     mutationFn: async (values: any) => {
       const endpoint = expense ? `/api/expenses/${expense.id}` : "/api/expenses";
       const method = expense ? "PATCH" : "POST";
-      await apiRequest(method, endpoint, values);
+      await apiRequest(method, endpoint, {
+        ...values,
+        projectId: projectId || null
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      // Invalidate the appropriate queries
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      }
+      
       if (!expense) form.reset();
       if (onCancel) onCancel();
+      if (onSuccess) onSuccess();
+      
       toast({
         title: "Success",
         description: expense ? "Expense updated successfully" : "Expense added successfully"
@@ -69,7 +95,7 @@ export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCa
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Amount (€)</FormLabel>
+              <FormLabel>Amount ($)</FormLabel>
               <FormControl>
                 <Input
                   type="number"
@@ -105,10 +131,49 @@ export default function ExpenseForm({ expense, onCancel }: { expense?: any; onCa
             </FormItem>
           )}
         />
+        
+        <FormField
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date</FormLabel>
+              <FormControl>
+                <Input
+                  type="date"
+                  {...field}
+                  value={field.value ? field.value.split('T')[0] : new Date().toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    field.onChange(date ? new Date(date).toISOString() : new Date().toISOString());
+                  }}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="isBudget"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center gap-2">
+                <FormLabel>Budget Item (not an actual expense)</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value === 1}
+                    onCheckedChange={(checked) => field.onChange(checked ? 1 : 0)}
+                  />
+                </FormControl>
+              </div>
+            </FormItem>
+          )}
+        />
 
         <div className="flex gap-2">
           <Button type="submit" className="flex-1">
-            {expense ? "Update" : "Add"} Expense
+            {expense ? "Update" : "Add"} {form.watch("isBudget") ? "Budget Item" : "Expense"}
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
