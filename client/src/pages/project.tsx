@@ -547,19 +547,84 @@ export default function ProjectPage() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="calendar">
+          <TabsContent value="calendar" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Project Calendar</h2>
+            </div>
+            
             <Card>
               <CardHeader>
-                <CardTitle>Calendar</CardTitle>
-                <CardDescription>
-                  View your project tasks on a calendar
-                </CardDescription>
+                <CardTitle>Project Timeline</CardTitle>
+                <CardDescription>View and manage your project schedule</CardDescription>
               </CardHeader>
-              <CardContent className="h-[500px] flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-4">
-                    Calendar view coming soon...
+              <CardContent className="p-6">
+                <div className="text-center py-12">
+                  <h3 className="text-xl font-medium mb-2">Calendar View</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                    Calendar integration allows you to visualize your project timeline and tasks with due dates.
                   </p>
+                  
+                  <div className="grid grid-cols-7 gap-1 mb-4">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="text-sm font-medium p-2">{day}</div>
+                    ))}
+                    
+                    {Array.from({ length: 35 }).map((_, i) => {
+                      const day = i + 1;
+                      const hasTask = todos.some(todo => 
+                        todo.dueDate && 
+                        new Date(todo.dueDate).getDate() === day && 
+                        new Date(todo.dueDate).getMonth() === new Date().getMonth()
+                      );
+                      
+                      return (
+                        <div 
+                          key={i} 
+                          className={`p-2 rounded border text-center relative ${
+                            hasTask ? 'bg-primary/10 border-primary/20' : ''
+                          }`}
+                        >
+                          {day <= 31 && (
+                            <>
+                              <span>{day}</span>
+                              {hasTask && (
+                                <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-primary" />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <h4 className="font-medium mb-4">Tasks with Due Dates</h4>
+                  
+                  {todos.filter(todo => todo.dueDate).length > 0 ? (
+                    <div className="space-y-2 max-w-lg mx-auto">
+                      {todos
+                        .filter(todo => todo.dueDate)
+                        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+                        .map(todo => (
+                          <div key={todo.id} className="flex items-center justify-between p-2 border rounded">
+                            <div className="flex items-center">
+                              <div className={`mr-2 h-3 w-3 rounded-full ${todo.completed ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                              <div>
+                                <div className="font-medium">{todo.title}</div>
+                                <div className="text-xs text-muted-foreground">{todo.category}</div>
+                              </div>
+                            </div>
+                            <div className="text-sm">
+                              {todo.dueDate && new Date(todo.dueDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      No tasks with due dates. Add due dates to your tasks to see them in the calendar.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
