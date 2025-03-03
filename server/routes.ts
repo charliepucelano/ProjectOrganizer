@@ -6,6 +6,8 @@ import {
   insertExpenseSchema,
   defaultTodoCategories,
   insertPushSubscriptionSchema,
+  insertProjectSchema,
+  insertCustomCategorySchema,
 } from "@shared/schema";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
@@ -21,15 +23,214 @@ import { checkAndNotifyTasks } from "./services/notifications";
 export async function registerRoutes(app: Express) {
   // Serve Swagger UI
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  
+  /**
+   * @swagger
+   * /projects:
+   *   get:
+   *     summary: Get all projects for the current user
+   *     tags: [Projects]
+   *     security:
+   *       - cookieAuth: []
+   *     responses:
+   *       200:
+   *         description: List of projects
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Project'
+   */
+  app.get("/api/projects", requireAuth, async (req, res) => {
+    try {
+      const projects = await storage.getProjects(req.user!.id);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error getting projects:", error);
+      res.status(500).json({ error: "Failed to get projects" });
+    }
+  });
 
   /**
    * @swagger
-   * /categories:
+   * /projects/{id}:
    *   get:
-   *     summary: Get all categories
+   *     summary: Get a project by ID
+   *     tags: [Projects]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Project details
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Project'
+   *       404:
+   *         description: Project not found
+   */
+  app.get("/api/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const project = await storage.getProject(id);
+      
+      // Check if the project belongs to the current user
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      res.json(project);
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects:
+   *   post:
+   *     summary: Create a new project
+   *     tags: [Projects]
+   *     security:
+   *       - cookieAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/Project'
+   *     responses:
+   *       200:
+   *         description: Created project
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Project'
+   *       400:
+   *         description: Invalid project data
+   */
+  app.post("/api/projects", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertProjectSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error });
+      }
+      
+      const project = await storage.createProject(parsed.data);
+      res.json(project);
+    } catch (error) {
+      console.error("Error creating project:", error);
+      res.status(500).json({ error: "Failed to create project" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{id}:
+   *   patch:
+   *     summary: Update a project
+   *     tags: [Projects]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/Project'
+   *     responses:
+   *       200:
+   *         description: Updated project
+   *       403:
+   *         description: Forbidden - you don't have access to this project
+   *       404:
+   *         description: Project not found
+   */
+  app.patch("/api/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(id);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const updatedProject = await storage.updateProject(id, req.body);
+      res.json(updatedProject);
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{id}:
+   *   delete:
+   *     summary: Delete a project
+   *     tags: [Projects]
+   *     security:
+   *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       204:
+   *         description: Project deleted successfully
+   *       403:
+   *         description: Forbidden - you don't have access to this project
+   */
+  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(id);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      await storage.deleteProject(id);
+      res.status(204).end();
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
+  });
+
+  /**
+   * @swagger
+   * /projects/{projectId}/categories:
+   *   get:
+   *     summary: Get all categories for a specific project
    *     tags: [Categories]
    *     security:
    *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
    *     responses:
    *       200:
    *         description: List of categories
@@ -38,20 +239,43 @@ export async function registerRoutes(app: Express) {
    *             schema:
    *               type: array
    *               items:
-   *                 type: string
+   *                 $ref: '#/components/schemas/Category'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
    */
-  app.get("/api/categories", async (_req, res) => {
-    res.json([...defaultTodoCategories]);
+  app.get("/api/projects/:projectId/categories", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(projectId);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const categories = await storage.getCustomCategories(projectId);
+      res.json(categories);
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
   });
 
   /**
    * @swagger
-   * /categories:
+   * /projects/{projectId}/categories:
    *   post:
-   *     summary: Create a new category
+   *     summary: Create a new category for a specific project
    *     tags: [Categories]
    *     security:
    *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
    *     requestBody:
    *       required: true
    *       content:
@@ -68,22 +292,42 @@ export async function registerRoutes(app: Express) {
    *         description: Created category
    *       400:
    *         description: Invalid category name or category already exists
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
    */
-  app.post("/api/categories", async (req, res) => {
-    const { name } = req.body;
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return res.status(400).json({ error: "Category name is required" });
+  app.post("/api/projects/:projectId/categories", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(projectId);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const { name } = req.body;
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+      
+      // Check if this category already exists for this project
+      const existingCategories = await storage.getCustomCategories(projectId);
+      if (existingCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        return res.status(400).json({ error: "Category already exists for this project" });
+      }
+      
+      const category = await storage.createCustomCategory({ 
+        name: name.trim(),
+        projectId
+      });
+      
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
     }
-    const trimmedName = name.trim();
-    if (
-      defaultTodoCategories.some(
-        (c) => c.toLowerCase() === trimmedName.toLowerCase(),
-      )
-    ) {
-      return res.status(400).json({ error: "Category already exists" });
-    }
-    (defaultTodoCategories as string[]).push(trimmedName);
-    res.json({ name: trimmedName });
   });
 
   /**
@@ -150,12 +394,18 @@ export async function registerRoutes(app: Express) {
 
   /**
    * @swagger
-   * /todos:
+   * /projects/{projectId}/todos:
    *   get:
-   *     summary: Get all todos
+   *     summary: Get all todos for a specific project
    *     tags: [Todos]
    *     security:
    *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
    *     responses:
    *       200:
    *         description: List of todos
@@ -165,10 +415,26 @@ export async function registerRoutes(app: Express) {
    *               type: array
    *               items:
    *                 $ref: '#/components/schemas/Todo'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
    */
-  app.get("/api/todos", async (_req, res) => {
-    const todos = await storage.getTodos();
-    res.json(todos);
+  app.get("/api/projects/:projectId/todos", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(projectId);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const todos = await storage.getTodos(projectId);
+      res.json(todos);
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
   });
 
   /**
@@ -277,12 +543,18 @@ export async function registerRoutes(app: Express) {
 
   /**
    * @swagger
-   * /expenses:
+   * /projects/{projectId}/expenses:
    *   get:
-   *     summary: Get all expenses
+   *     summary: Get all expenses for a specific project
    *     tags: [Expenses]
    *     security:
    *       - cookieAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema:
+   *           type: integer
    *     responses:
    *       200:
    *         description: List of expenses
@@ -292,10 +564,26 @@ export async function registerRoutes(app: Express) {
    *               type: array
    *               items:
    *                 $ref: '#/components/schemas/Expense'
+   *       403:
+   *         description: You don't have access to this project
+   *       404:
+   *         description: Project not found
    */
-  app.get("/api/expenses", async (_req, res) => {
-    const expenses = await storage.getExpenses();
-    res.json(expenses);
+  app.get("/api/projects/:projectId/expenses", requireAuth, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      
+      // Check if the project exists and belongs to the current user
+      const project = await storage.getProject(projectId);
+      if (project.userId !== req.user!.id) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      const expenses = await storage.getExpenses(projectId);
+      res.json(expenses);
+    } catch (error) {
+      res.status(404).json({ error: "Project not found" });
+    }
   });
 
   /**

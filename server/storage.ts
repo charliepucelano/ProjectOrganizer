@@ -155,7 +155,8 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
-    for (const user of this.users.values()) {
+    const allUsers = Array.from(this.users.values());
+    for (const user of allUsers) {
       if (user.username.toLowerCase() === username.toLowerCase()) {
         return user;
       }
@@ -291,7 +292,8 @@ export class MemStorage implements IStorage {
   }
 
   private reassignTodos(projectId: number, oldCategory: string, newCategory: string): void {
-    for (const [key, value] of this.todos) {
+    const entries = Array.from(this.todos.entries());
+    for (const [key, value] of entries) {
       if (value.projectId === projectId && value.category === oldCategory) {
         this.updateTodo(key, {category: newCategory});
       }
@@ -299,7 +301,8 @@ export class MemStorage implements IStorage {
   }
 
   async updateTodosWithCategory(projectId: number, oldCategory: string, newCategory: string): Promise<void> {
-    for (const [id, todo] of this.todos) {
+    const entries = Array.from(this.todos.entries());
+    for (const [id, todo] of entries) {
       if (todo.projectId === projectId && todo.category === oldCategory) {
         await this.updateTodo(id, { category: newCategory });
       }
