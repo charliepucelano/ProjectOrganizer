@@ -82,6 +82,7 @@ export default function ProjectPage() {
       try {
         // Toggle the isBudget status (0 = paid, 1 = unpaid)
         const newStatus = expense.isBudget === 1 ? 0 : 1;
+        const timestamp = new Date().toISOString();
         
         // First update the expense
         await apiRequest(
@@ -89,34 +90,37 @@ export default function ProjectPage() {
           `/api/expenses/${expense.id}`,
           { 
             isBudget: newStatus,
-            completedAt: newStatus === 0 ? new Date().toISOString() : null 
+            completedAt: newStatus === 0 ? timestamp : null 
           }
         );
         
         // If expense has associated task, update the task status accordingly
         if (expense.todoId) {
           try {
-            // Get the associated todo first
-            const response = await apiRequest("GET", `/api/todos/${expense.todoId}`);
-            const todo = await response.json();
+            // Update the task status (mark as completed if expense is paid)
+            await apiRequest(
+              "PATCH",
+              `/api/todos/${expense.todoId}`,
+              { 
+                completed: newStatus === 0 ? 1 : 0,
+                completedAt: newStatus === 0 ? timestamp : null 
+              }
+            );
             
-            // Update the task status
-            if (todo) {
-              // Mark as completed if expense is paid, mark as incomplete if expense is unpaid
-              await apiRequest(
-                "PATCH",
-                `/api/todos/${expense.todoId}`,
-                { 
-                  completed: newStatus === 0 ? 1 : 0,
-                  completedAt: newStatus === 0 ? new Date().toISOString() : null 
-                }
-              );
-              
-              // Also invalidate todos queries
-              queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
-            }
+            // Invalidate todos queries to refresh the UI
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/projects/${projectId}/todos`] 
+            });
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/todos`] 
+            });
           } catch (todoError) {
             console.error("Error updating associated task:", todoError);
+            toast({
+              title: "Warning",
+              description: "Expense updated but task status could not be updated",
+              variant: "destructive"
+            });
           }
         }
         
@@ -127,7 +131,10 @@ export default function ProjectPage() {
       }
     },
     onSuccess: () => {
+      // Invalidate all relevant queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/expenses`] });
+      
       toast({
         title: "Success",
         description: "Expense status updated"
@@ -728,15 +735,17 @@ export default function ProjectPage() {
                : 
                 "Are you sure you want to mark this expense as paid?"
               }
-              <div className="mt-2 p-3 border rounded">
-                <div className="flex justify-between font-medium">
-                  <span>{expenseToToggle?.description}</span>
-                  <span>${expenseToToggle?.amount?.toFixed(2)}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">{expenseToToggle?.category}</div>
-              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          
+          <div className="mt-2 p-3 border rounded">
+            <div className="flex justify-between font-medium">
+              <span>{expenseToToggle?.description}</span>
+              <span>${expenseToToggle?.amount?.toFixed(2)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">{expenseToToggle?.category}</div>
+          </div>
+          
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => toggleExpenseStatusMutation.mutate(expenseToToggle)}>
