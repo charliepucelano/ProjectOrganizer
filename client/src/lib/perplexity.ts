@@ -207,12 +207,33 @@ export async function expandNote(content: string, title: string, tags: string[] 
     responseContent = responseContent.replace(/\s+\./g, '.');
     responseContent = responseContent.replace(/\s+,/g, ',');
     
-    // Fix any malformed URLs (sometimes Perplexity returns partial HTML)
+    // Fix any malformed URLs (sometimes Perplexity returns broken HTML in the markdown)
+    responseContent = responseContent.replace(/\[(.*?)\]\((.*?) target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
     responseContent = responseContent.replace(/\[(.*?)\]\((.*?)#(.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2#$3)');
     responseContent = responseContent.replace(/\[(.*?)\]\((.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
     
     // Clean up any other HTML that might have been included
     responseContent = responseContent.replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)');
+    
+    // Fix any markdown links that might be broken by having spaces
+    responseContent = responseContent.replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\s+(.*?)\)/g, '[$1]($2$3)');
+    
+    // More aggressive cleanup for any remaining HTML or malformed links
+    const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+    const matches = responseContent.matchAll(linkRegex);
+    
+    for (const match of matches) {
+      const fullMatch = match[0];
+      const text = match[1];
+      let url = match[2];
+      
+      // Check if URL contains any HTML tags or quotes, which indicates it's broken
+      if (url.includes('"') || url.includes('>') || url.includes('<')) {
+        // Extract just the URL part
+        const cleanUrl = url.split('"')[0].split('<')[0].split('>')[0];
+        responseContent = responseContent.replace(fullMatch, `[${text}](${cleanUrl})`);
+      }
+    }
     
     console.log("=== CLEANED RESPONSE ===");
     console.log(responseContent);

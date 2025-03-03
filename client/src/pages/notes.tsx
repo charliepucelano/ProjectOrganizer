@@ -187,13 +187,15 @@ Please refine the original research based on these instructions.
       
       // Close modal and update state
       setResearchModalOpen(false);
-      setIsExpanded(true);
+      setIsExpanded(false);  // Changed from true to false so we show normal view
       setResearchAction("save");
       
-      // Invalidate queries to refresh note list
-      if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: [`/api/projects/${note.projectId}/notes`] });
-      }
+      // Invalidate queries to refresh note list and update the current note
+      const qClient = useQueryClient();
+      qClient.invalidateQueries({ queryKey: [`/api/projects/${note.projectId}/notes`] });
+      
+      // Update the note object directly to reflect the new content
+      note.content = expandedContent;
     } catch (error) {
       console.error("Error saving research:", error);
       toast({
