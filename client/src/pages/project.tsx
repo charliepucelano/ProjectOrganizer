@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient } from "@/lib/queryClient";
 import { Project } from "@shared/schema";
-import { ProtectedRoute } from "@/lib/protected-route";
+
 import TodoList from "@/components/todo-list";
 import TodoForm from "@/components/todo-form";
 import ExpenseForm from "@/components/expense-form";
@@ -110,7 +110,6 @@ export default function ProjectPage() {
   const totalTodos = todos.length;
   
   return (
-    <ProtectedRoute>
       <div className="container py-6 space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -631,6 +630,5 @@ export default function ProjectPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </ProtectedRoute>
-  );
-}
+    );
+  }

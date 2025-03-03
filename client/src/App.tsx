@@ -70,7 +70,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/" component={Projects} />
+      <ProtectedRoute path="/home" component={Home} />
       <ProtectedRoute path="/budget" component={Budget} />
       <ProtectedRoute path="/categories" component={Categories} />
       <ProtectedRoute path="/projects" component={Projects} />
