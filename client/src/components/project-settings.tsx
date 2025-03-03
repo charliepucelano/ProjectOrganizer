@@ -131,7 +131,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
             <CardHeader>
               <CardTitle>{t('categories.manageCategories')}</CardTitle>
               <CardDescription>
-                {t('categories.manageProjectCategories')}
+                Manage project categories for organizing tasks and expenses
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -141,7 +141,7 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
               
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('categories.allCategories')}</CardTitle>
+                  <CardTitle>Categories</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[300px]">
@@ -149,18 +149,10 @@ export default function ProjectSettings({ projectId, project }: ProjectSettingsP
                       {/* Show the Unassigned category first (read-only) */}
                       <div className="flex items-center justify-between p-2 rounded-md border">
                         <span>Unassigned</span>
-                        <Badge variant="secondary">{t('categories.default')}</Badge>
+                        <span className="text-sm text-muted-foreground">(Default - cannot be deleted)</span>
                       </div>
                       
-                      {/* Show the default categories not including Unassigned */}
-                      {Array.isArray(defaultCategories) && defaultCategories
-                        .filter(category => category !== "Unassigned")
-                        .map((category) => (
-                          <div key={category} className="flex items-center justify-between p-2 rounded-md border">
-                            <span>{category}</span>
-                            <Badge variant="outline">{t('categories.standard')}</Badge>
-                          </div>
-                      ))}
+                      {/* We're not displaying the default categories separately anymore - they're all handled the same way */}
                       
                       {/* Then show any custom categories the user has added */}
                       {Array.isArray(customCategories) && customCategories.length > 0 && 

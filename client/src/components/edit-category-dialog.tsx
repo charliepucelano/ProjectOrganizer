@@ -70,7 +70,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t('categories.editCategory')}</DialogTitle>
+          <DialogTitle>Edit Category</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -79,7 +79,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('categories.categoryName')}</FormLabel>
+                  <FormLabel>Category Name</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -88,7 +88,7 @@ export default function EditCategoryDialog({ category, open, onOpenChange }: Edi
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t('common.cancel')}
+                Cancel
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? t('common.saving') : t('common.saveChanges')}

@@ -76,12 +76,12 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
           className="flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          {t('categories.addCategory')}
+          Add Category
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t('categories.addNewCategory')}</DialogTitle>
+          <DialogTitle>Add New Category</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -93,7 +93,7 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
                 <FormItem>
                   <FormControl>
                     <Input 
-                      placeholder={t('categories.categoryNamePlaceholder')} 
+                      placeholder="Enter category name" 
                       {...field} 
                     />
                   </FormControl>
@@ -102,7 +102,7 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
             />
             <div className="flex justify-end">
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? t('common.adding') : t('common.add')}
+                {createMutation.isPending ? "Adding..." : "Add"}
               </Button>
             </div>
           </form>
