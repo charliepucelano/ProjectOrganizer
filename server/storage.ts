@@ -1,18 +1,25 @@
-import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription } from "@shared/schema";
+import { Todo, InsertTodo, Expense, InsertExpense, User, InsertUser, CustomCategory, InsertCustomCategory, PushSubscription, InsertPushSubscription, Project, InsertProject } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
 const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
+  // Projects
+  getProjects(userId: number): Promise<Project[]>;
+  getProject(id: number): Promise<Project>;
+  createProject(project: InsertProject): Promise<Project>;
+  updateProject(id: number, project: Partial<Project>): Promise<Project>;
+  deleteProject(id: number): Promise<void>;
+
   // Todos
-  getTodos(): Promise<Todo[]>;
+  getTodos(projectId: number): Promise<Todo[]>;
   createTodo(todo: InsertTodo): Promise<Todo>;
   updateTodo(id: number, todo: Partial<Todo>): Promise<Todo>;
   deleteTodo(id: number): Promise<void>;
 
   // Expenses
-  getExpenses(): Promise<Expense[]>;
+  getExpenses(projectId: number): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: number, expense: Partial<Expense>): Promise<Expense>;
   deleteExpense(id: number): Promise<void>;
@@ -22,14 +29,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | null>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, update: Partial<User>): Promise<User>;  
-  getUsers(): Promise<User[]>; // Add getUsers method
+  getUsers(): Promise<User[]>; 
 
   // Categories
-  getCustomCategories(): Promise<CustomCategory[]>;
+  getCustomCategories(projectId: number): Promise<CustomCategory[]>;
   createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
   updateCustomCategory(id: number, data: InsertCustomCategory): Promise<CustomCategory>;
   deleteCustomCategory(id: number): Promise<void>;
-  updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void>;
+  updateTodosWithCategory(projectId: number, oldCategory: string, newCategory: string): Promise<void>;
 
   // Session store
   sessionStore: session.Store;
@@ -45,10 +52,12 @@ export class MemStorage implements IStorage {
   private expenses: Map<number, Expense>;
   private users: Map<number, User>;
   private categories: Map<number, CustomCategory>;
+  private projects: Map<number, Project>;
   private todoId: number;
   private expenseId: number;
   private userId: number;
   private categoryId: number;
+  private projectId: number;
   private pushSubscriptions: Map<number, PushSubscription>;
   private pushSubscriptionId: number;
   readonly sessionStore: session.Store;
@@ -58,26 +67,87 @@ export class MemStorage implements IStorage {
     this.expenses = new Map();
     this.users = new Map();
     this.categories = new Map();
+    this.projects = new Map();
     this.todoId = 1;
     this.expenseId = 1;
     this.userId = 1;
     this.categoryId = 1;
+    this.projectId = 1;
     this.pushSubscriptions = new Map();
     this.pushSubscriptionId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
     });
-
-    // Initialize with predefined categories
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Financial Obligations" });
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Moving" });
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Utilities" });
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Improvements" });
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Furniture" });
-    this.categories.set(this.categoryId++, { id: this.categoryId -1, name: "Unassigned" });
   }
 
+  // Project methods
+  async getProjects(userId: number): Promise<Project[]> {
+    return Array.from(this.projects.values())
+      .filter(project => project.userId === userId);
+  }
 
+  async getProject(id: number): Promise<Project> {
+    const project = this.projects.get(id);
+    if (!project) throw new Error("Project not found");
+    return project;
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const id = this.projectId++;
+    const now = new Date();
+    const newProject = { 
+      ...project, 
+      id, 
+      createdAt: now, 
+      updatedAt: now,
+      description: project.description || null
+    };
+    this.projects.set(id, newProject);
+    
+    // Initialize default categories for this project
+    ["Financial Obligations", "Moving", "Utilities", "Improvements", "Furniture", "Unassigned"].forEach(name => {
+      this.createCustomCategory({ name, projectId: id });
+    });
+    
+    return newProject;
+  }
+
+  async updateProject(id: number, update: Partial<Project>): Promise<Project> {
+    const project = await this.getProject(id);
+    const updatedProject = { 
+      ...project, 
+      ...update,
+      updatedAt: new Date()
+    };
+    this.projects.set(id, updatedProject);
+    return updatedProject;
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    // Delete all associated todos, expenses, and categories
+    const todosToDelete = Array.from(this.todos.values())
+      .filter(todo => todo.projectId === id);
+    
+    const expensesToDelete = Array.from(this.expenses.values())
+      .filter(expense => expense.projectId === id);
+      
+    const categoriesToDelete = Array.from(this.categories.values())
+      .filter(category => category.projectId === id);
+    
+    // Delete todos
+    todosToDelete.forEach(todo => this.todos.delete(todo.id));
+    
+    // Delete expenses
+    expensesToDelete.forEach(expense => this.expenses.delete(expense.id));
+    
+    // Delete categories
+    categoriesToDelete.forEach(category => this.categories.delete(category.id));
+    
+    // Finally delete the project
+    this.projects.delete(id);
+  }
+
+  // User methods
   async getUser(id: number): Promise<User> {
     const user = this.users.get(id);
     if (!user) throw new Error("User not found");
@@ -109,8 +179,14 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
-  async getTodos(): Promise<Todo[]> {
-    return Array.from(this.todos.values());
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  // Todo methods
+  async getTodos(projectId: number): Promise<Todo[]> {
+    return Array.from(this.todos.values())
+      .filter(todo => todo.projectId === projectId);
   }
 
   async createTodo(todo: InsertTodo): Promise<Todo> {
@@ -124,7 +200,8 @@ export class MemStorage implements IStorage {
       estimatedAmount: todo.estimatedAmount || null,
       completed: todo.completed || 0,
       priority: todo.priority || 0,
-      hasAssociatedExpense: todo.hasAssociatedExpense || 0
+      hasAssociatedExpense: todo.hasAssociatedExpense || 0,
+      projectId: todo.projectId || null
     };
     this.todos.set(id, newTodo);
     return newTodo;
@@ -143,8 +220,10 @@ export class MemStorage implements IStorage {
     this.todos.delete(id);
   }
 
-  async getExpenses(): Promise<Expense[]> {
-    return Array.from(this.expenses.values());
+  // Expense methods
+  async getExpenses(projectId: number): Promise<Expense[]> {
+    return Array.from(this.expenses.values())
+      .filter(expense => expense.projectId === projectId);
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
@@ -155,7 +234,8 @@ export class MemStorage implements IStorage {
       date: new Date(expense.date),
       todoId: expense.todoId || null,
       completedAt: expense.completedAt ? new Date(expense.completedAt) : null,
-      isBudget: expense.isBudget || 0
+      isBudget: expense.isBudget || 0,
+      projectId: expense.projectId || null
     };
     this.expenses.set(id, newExpense);
     return newExpense;
@@ -174,13 +254,19 @@ export class MemStorage implements IStorage {
     this.expenses.delete(id);
   }
 
-  async getCustomCategories(): Promise<CustomCategory[]> {
-    return Array.from(this.categories.values());
+  // Category methods
+  async getCustomCategories(projectId: number): Promise<CustomCategory[]> {
+    return Array.from(this.categories.values())
+      .filter(category => category.projectId === projectId);
   }
 
   async createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory> {
     const id = this.categoryId++;
-    const newCategory = { ...category, id };
+    const newCategory = { 
+      ...category, 
+      id,
+      projectId: category.projectId || null
+    };
     this.categories.set(id, newCategory);
     return newCategory;
   }
@@ -196,29 +282,31 @@ export class MemStorage implements IStorage {
   async deleteCustomCategory(id: number): Promise<void> {
     const categoryToDelete = this.categories.get(id);
     if (categoryToDelete) {
-        this.categories.delete(id);
-        //reassign todos
-        this.reassignTodos(categoryToDelete.name, "Unassigned");
-    }
-
-  }
-
-  private reassignTodos(oldCategory: string, newCategory: string): void{
-      for (const [key, value] of this.todos) {
-          if(value.category === oldCategory){
-              this.updateTodo(key, {category: newCategory});
-          }
+      this.categories.delete(id);
+      // Reassign todos within the same project
+      if (categoryToDelete.projectId) {
+        this.reassignTodos(categoryToDelete.projectId, categoryToDelete.name, "Unassigned");
       }
+    }
   }
 
-  async updateTodosWithCategory(oldCategory: string, newCategory: string): Promise<void> {
+  private reassignTodos(projectId: number, oldCategory: string, newCategory: string): void {
+    for (const [key, value] of this.todos) {
+      if (value.projectId === projectId && value.category === oldCategory) {
+        this.updateTodo(key, {category: newCategory});
+      }
+    }
+  }
+
+  async updateTodosWithCategory(projectId: number, oldCategory: string, newCategory: string): Promise<void> {
     for (const [id, todo] of this.todos) {
-      if (todo.category === oldCategory) {
+      if (todo.projectId === projectId && todo.category === oldCategory) {
         await this.updateTodo(id, { category: newCategory });
       }
     }
   }
 
+  // Push notification methods
   async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
     const id = this.pushSubscriptionId++;
     const newSubscription = {
@@ -243,9 +331,6 @@ export class MemStorage implements IStorage {
       ...subscription,
       lastNotified: date
     });
-  }
-  async getUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
   }
 }
 

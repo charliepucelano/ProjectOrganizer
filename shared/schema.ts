@@ -30,6 +30,16 @@ export const users = pgTable("users", {
   googleRefreshToken: text("google_refresh_token"),
 });
 
+// Projects table
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  userId: integer("user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const todos = pgTable("todos", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -40,6 +50,7 @@ export const todos = pgTable("todos", {
   priority: integer("priority").notNull().default(0),
   hasAssociatedExpense: integer("has_associated_expense").notNull().default(0),
   estimatedAmount: real("estimated_amount"),
+  projectId: integer("project_id").references(() => projects.id),
 });
 
 export const expenses = pgTable("expenses", {
@@ -51,6 +62,14 @@ export const expenses = pgTable("expenses", {
   todoId: integer("todo_id").references(() => todos.id),
   isBudget: integer("is_budget").notNull().default(0),
   completedAt: timestamp("completed_at"),
+  projectId: integer("project_id").references(() => projects.id),
+});
+
+// Custom categories now belong to a project
+export const customCategories = pgTable("custom_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  projectId: integer("project_id").references(() => projects.id),
 });
 
 // Add after the existing imports
@@ -63,6 +82,13 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   lastNotified: timestamp("last_notified"),
 });
 
+// Create a project schema with validation
+export const insertProjectSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+  userId: z.number(),
+});
+
 // Create a base todo schema with proper validation
 export const insertTodoSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -73,6 +99,7 @@ export const insertTodoSchema = z.object({
   priority: z.number().default(0),
   hasAssociatedExpense: z.number().default(0),
   estimatedAmount: z.number().nullable(),
+  projectId: z.number().nullable(),
 });
 
 // Create a base expense schema with proper validation
@@ -84,6 +111,13 @@ export const insertExpenseSchema = z.object({
   todoId: z.number().nullable(),
   isBudget: z.number().default(0),
   completedAt: z.string().nullable(),
+  projectId: z.number().nullable(),
+});
+
+// Custom category schema
+export const insertCustomCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  projectId: z.number().nullable(),
 });
 
 // Add user validation schema
@@ -93,12 +127,16 @@ export const insertUserSchema = z.object({
 });
 
 // Add to the existing types section
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Todo = typeof todos.$inferSelect;
 export type InsertTodo = z.infer<typeof insertTodoSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type CustomCategory = typeof customCategories.$inferSelect;
+export type InsertCustomCategory = z.infer<typeof insertCustomCategorySchema>;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
