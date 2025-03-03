@@ -221,6 +221,9 @@ export function markdownToHtml(markdown: string): string {
     // Plain URLs - converts URLs that are not already part of a markdown link
     .replace(/(?<!\]\()(?<!\()(https?:\/\/[^\s]+)(?!\))/gim, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
     
+    // Handle citation references like [1], [2], [n], etc. and highlight them
+    .replace(/\[((?:\d+)|(?:[a-zA-Z]+))\](?!\()/g, '<span class="citation-ref" style="color: var(--primary); font-weight: bold;">[&#8203;$1&#8203;]</span>')
+    
     // Code blocks
     .replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>')
     

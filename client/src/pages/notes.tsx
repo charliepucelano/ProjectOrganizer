@@ -90,7 +90,13 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
   const [researchAction, setResearchAction] = useState<"save" | "refine" | "discard" | null>(null);
   
   const handleResearchNote = async () => {
+    // Set loading state immediately to true
     setExpandLoading(true);
+    toast({
+      title: t("researching") || "Researching...",
+      description: t("researchingDescription") || "Please wait while we research your note...",
+    });
+    
     try {
       const expanded = await expandNoteWithAI(note.content, note.title, note.tags);
       setExpandedContent(expanded);
