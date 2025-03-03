@@ -169,13 +169,20 @@ export async function expandNote(content: string, title: string, tags: string[] 
   
   Content: "${content}"
   
+  IMPORTANT FORMATTING INSTRUCTIONS: 
+  - ALWAYS use proper markdown links with actual URLs, like: [Moving Companies in Düsseldorf](https://www.movinga.de) or [City Information](https://www.duesseldorf.de)
+  - NEVER use numbered citation references like [1], [2], etc.
+  - For each fact or detail you add, try to include a real, working URL where the user could learn more
+  - Format your response with proper Markdown, including headings (##), bullet points, and emphasis where appropriate
+  - Do not include a separate References section at the end
+  
   Please provide only the expanded content, not the original, and format it to be easy to read.`;
   
   try {
     const data = await callPerplexityAPI([
       {
         role: "system",
-        content: "You are a helpful assistant that expands notes with relevant and meaningful information."
+        content: "You are a helpful assistant that expands notes with relevant and meaningful information. Always provide real, clickable URLs for sources instead of citation references like [1], [2], etc."
       },
       {
         role: "user",
