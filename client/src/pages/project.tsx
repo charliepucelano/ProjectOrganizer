@@ -8,6 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient } from "@/lib/queryClient";
@@ -62,11 +72,17 @@ export default function ProjectPage() {
   // State for editing an expense
   const [editingExpense, setEditingExpense] = useState(null);
   
+  // Dialog state for expense payment confirmation
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [expenseToToggle, setExpenseToToggle] = useState(null);
+  
   // Mutation to toggle expense payment status
   const toggleExpenseStatusMutation = useMutation({
     mutationFn: async (expense) => {
       // Toggle the isBudget status (0 = paid, 1 = unpaid)
       const newStatus = expense.isBudget === 1 ? 0 : 1;
+      
+      // First update the expense
       await apiRequest(
         "PATCH",
         `/api/expenses/${expense.id}`,
@@ -75,6 +91,28 @@ export default function ProjectPage() {
           completedAt: newStatus === 0 ? new Date().toISOString() : null 
         }
       );
+      
+      // If expense has associated task and we're marking as paid, also complete the task
+      if (expense.todoId && newStatus === 0) {
+        // Get the associated todo first
+        const response = await apiRequest("GET", `/api/todos/${expense.todoId}`);
+        const todo = await response.json();
+        
+        // Update the task to mark it as completed
+        if (todo) {
+          await apiRequest(
+            "PATCH",
+            `/api/todos/${expense.todoId}`,
+            { 
+              completed: 1,
+              completedAt: new Date().toISOString() 
+            }
+          );
+          
+          // Also invalidate todos queries
+          queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/expenses`] });
@@ -82,6 +120,10 @@ export default function ProjectPage() {
         title: "Success",
         description: "Expense status updated"
       });
+      
+      // Reset dialog state
+      setShowPaymentDialog(false);
+      setExpenseToToggle(null);
     },
     onError: (error) => {
       toast({
@@ -89,6 +131,10 @@ export default function ProjectPage() {
         description: "Failed to update expense status",
         variant: "destructive"
       });
+      
+      // Reset dialog state
+      setShowPaymentDialog(false);
+      setExpenseToToggle(null);
     }
   });
   
@@ -115,7 +161,14 @@ export default function ProjectPage() {
   
   // Function to toggle expense payment status
   const toggleExpenseStatus = (expense) => {
-    toggleExpenseStatusMutation.mutate(expense);
+    // If we're marking as paid, show confirmation dialog
+    if (expense.isBudget === 1) {
+      setExpenseToToggle(expense);
+      setShowPaymentDialog(true);
+    } else {
+      // If we're marking as unpaid, just do it directly
+      toggleExpenseStatusMutation.mutate(expense);
+    }
   };
   
   // Function to edit an expense
@@ -186,6 +239,7 @@ export default function ProjectPage() {
   const totalTodos = todos.length;
   
   return (
+    <>
       <div className="container py-6 space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -539,6 +593,7 @@ export default function ProjectPage() {
                             <th className="p-2 text-left">Description</th>
                             <th className="p-2 text-center">Status</th>
                             <th className="p-2 text-right">Amount</th>
+                            <th className="p-2 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -559,14 +614,14 @@ export default function ProjectPage() {
                               <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
                               <td className="p-2 text-right">
                                 <div className="flex justify-end gap-2">
-                                  <Button 
+                                  <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => editExpense(expense)}
                                   >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
-                                  <Button 
+                                  <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => deleteExpense(expense.id)}
@@ -578,29 +633,18 @@ export default function ProjectPage() {
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="border-t">
-                          <tr className="font-bold">
-                            <td className="p-2" colSpan={2}>Total Budget</td>
-                            <td className="p-2 text-right" colSpan={3}>${totalBudget.toFixed(2)}</td>
-                          </tr>
-                          <tr className="font-bold">
-                            <td className="p-2" colSpan={2}>Total Spent</td>
-                            <td className="p-2 text-right" colSpan={3}>${totalSpent.toFixed(2)}</td>
-                          </tr>
-                          <tr className="font-bold">
-                            <td className="p-2" colSpan={2}>Remaining</td>
-                            <td className="p-2 text-right" colSpan={3}>${(totalBudget - totalSpent).toFixed(2)}</td>
-                          </tr>
-                        </tfoot>
                       </table>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">No expenses yet</p>
+                  <div className="text-center py-12 border rounded-lg">
+                    <h3 className="text-xl font-medium mb-2">No expenses yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Get started by adding your first expense
+                    </p>
                     {!showAddExpense && (
                       <Button onClick={() => setShowAddExpense(true)}>
-                        Add expense
+                        Add your first expense
                       </Button>
                     )}
                   </div>
@@ -610,64 +654,34 @@ export default function ProjectPage() {
           </TabsContent>
           
           <TabsContent value="calendar" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Project Calendar</h2>
-            </div>
-            
             <Card>
               <CardHeader>
-                <CardTitle>Project Timeline</CardTitle>
-                <CardDescription>View and manage your project schedule</CardDescription>
+                <CardTitle>Project Calendar</CardTitle>
+                <CardDescription>
+                  View tasks with due dates
+                </CardDescription>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="text-center py-12">
-                  <h3 className="text-xl font-medium mb-2">Calendar View</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                    Calendar integration allows you to visualize your project timeline and tasks with due dates.
-                  </p>
-                  
+              <CardContent>
+                <div className="space-y-4">
                   <div className="grid grid-cols-7 gap-1 mb-4">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
                       <div key={day} className="text-sm font-medium p-2">{day}</div>
                     ))}
-                    
-                    {Array.from({ length: 35 }).map((_, i) => {
-                      const day = i + 1;
-                      const hasTask = todos.some(todo => 
-                        todo.dueDate && 
-                        new Date(todo.dueDate).getDate() === day && 
-                        new Date(todo.dueDate).getMonth() === new Date().getMonth()
-                      );
-                      
-                      return (
-                        <div 
-                          key={i} 
-                          className={`p-2 rounded border text-center relative ${
-                            hasTask ? 'bg-primary/10 border-primary/20' : ''
-                          }`}
-                        >
-                          {day <= 31 && (
-                            <>
-                              <span>{day}</span>
-                              {hasTask && (
-                                <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-primary" />
-                              )}
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                   
-                  <h4 className="font-medium mb-4">Tasks with Due Dates</h4>
-                  
-                  {todos.filter(todo => todo.dueDate).length > 0 ? (
-                    <div className="space-y-2 max-w-lg mx-auto">
+                  {todosLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : todos.filter(todo => todo.dueDate).length > 0 ? (
+                    <div className="space-y-2">
                       {todos
                         .filter(todo => todo.dueDate)
-                        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+                        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
                         .map(todo => (
-                          <div key={todo.id} className="flex items-center justify-between p-2 border rounded">
+                          <div key={todo.id} className="flex justify-between items-center p-2 border rounded">
                             <div className="flex items-center">
                               <div className={`mr-2 h-3 w-3 rounded-full ${todo.completed ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                               <div>
@@ -693,5 +707,39 @@ export default function ProjectPage() {
           </TabsContent>
         </Tabs>
       </div>
-    );
-  }
+      
+      {/* Payment Confirmation Dialog */}
+      <AlertDialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Expense as Paid</AlertDialogTitle>
+            <AlertDialogDescription>
+              {expenseToToggle?.todoId ? (
+                <p>
+                  This expense is linked to a task. Marking it as paid will also complete the associated task.
+                </p>
+              ) : (
+                <p>
+                  Are you sure you want to mark this expense as paid?
+                </p>
+              )}
+              <div className="mt-2 p-3 border rounded">
+                <div className="flex justify-between font-medium">
+                  <span>{expenseToToggle?.description}</span>
+                  <span>${expenseToToggle?.amount?.toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{expenseToToggle?.category}</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => toggleExpenseStatusMutation.mutate(expenseToToggle)}>
+              Mark as Paid
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
