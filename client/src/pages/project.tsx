@@ -99,12 +99,14 @@ export default function ProjectPage() {
     );
   }
   
+  // Calculate budget need (unpaid expenses, isBudget=1)
   const totalBudget = expenses
-    .filter(expense => expense.isBudget)
+    .filter(expense => expense.isBudget === 1)
     .reduce((sum, expense) => sum + expense.amount, 0);
     
+  // Calculate total spent (paid expenses, isBudget=0)
   const totalSpent = expenses
-    .filter(expense => !expense.isBudget)
+    .filter(expense => expense.isBudget === 0)
     .reduce((sum, expense) => sum + expense.amount, 0);
     
   const completedTodos = todos.filter(todo => todo.completed).length;
@@ -285,9 +287,9 @@ export default function ProjectPage() {
                         <Skeleton key={i} className="h-12 w-full" />
                       ))}
                     </div>
-                  ) : expenses.filter(e => !e.isBudget).length > 0 ? (
+                  ) : expenses.filter(e => e.isBudget === 0).length > 0 ? (
                     <div className="space-y-2">
-                      {expenses.filter(e => !e.isBudget).slice(0, 5).map(expense => (
+                      {expenses.filter(e => e.isBudget === 0).slice(0, 5).map(expense => (
                         <div key={expense.id} className="flex items-center justify-between p-2 border rounded">
                           <div>
                             <div className="font-medium">{expense.description}</div>
@@ -296,9 +298,9 @@ export default function ProjectPage() {
                           <div className="font-medium">${expense.amount.toFixed(2)}</div>
                         </div>
                       ))}
-                      {expenses.filter(e => !e.isBudget).length > 5 && (
+                      {expenses.filter(e => e.isBudget === 0).length > 5 && (
                         <Button variant="ghost" className="w-full mt-2" onClick={() => setActiveTab("expenses")}>
-                          See all {expenses.filter(e => !e.isBudget).length} expenses
+                          See all {expenses.filter(e => e.isBudget === 0).length} expenses
                         </Button>
                       )}
                     </div>
@@ -465,8 +467,8 @@ export default function ProjectPage() {
                               <td className="p-2">{expense.category}</td>
                               <td className="p-2">{expense.description}</td>
                               <td className="p-2 text-center">
-                                <Badge variant={expense.isBudget ? "outline" : "default"}>
-                                  {expense.isBudget ? "Planned" : "Paid"}
+                                <Badge variant={expense.isBudget === 1 ? "outline" : "default"}>
+                                  {expense.isBudget === 1 ? "Unpaid" : "Paid"}
                                 </Badge>
                               </td>
                               <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
