@@ -149,7 +149,7 @@ export default function CategoryDialog({ projectId }: CategoryDialogProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {defaultTodoCategories.map((category) => (
+                  {defaultCategories.map((category) => (
                     <Badge key={category} variant="secondary">{category}</Badge>
                   ))}
                 </div>
