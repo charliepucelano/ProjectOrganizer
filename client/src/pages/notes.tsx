@@ -44,10 +44,68 @@ type Note = {
   updatedAt: string;
 };
 
+import { markdownToHtml, getSmartSuggestions, expandNote as expandNoteWithAI } from "@/lib/perplexity";
+
 function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: number) => void; onEdit: (note: Note) => void }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const maxContentLength = isMobile ? 100 : 150;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [expandedContent, setExpandedContent] = useState("");
+  const [expandLoading, setExpandLoading] = useState(false);
+
+  // Get smart suggestions based on note content
+  const handleGetSuggestions = async () => {
+    setSuggestionsLoading(true);
+    try {
+      const results = await getSmartSuggestions(note.content);
+      setSuggestions(results);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error("Error getting suggestions:", error);
+      toast({
+        title: t("error") || "Error",
+        description: t("suggestionError") || "Failed to get suggestions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  // Expand note with AI-generated content
+  const handleExpandNote = async () => {
+    setExpandLoading(true);
+    try {
+      const expanded = await expandNoteWithAI(note.content, note.title, note.tags);
+      setExpandedContent(expanded);
+      setIsExpanded(true);
+    } catch (error) {
+      console.error("Error expanding note:", error);
+      toast({
+        title: t("error") || "Error",
+        description: t("expandError") || "Failed to expand note. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExpandLoading(false);
+    }
+  };
+
+  const truncatedContent = note.content.length > maxContentLength
+    ? `${note.content.substring(0, maxContentLength)}...`
+    : note.content;
+
+  // Create a safe HTML string from markdown content
+  const createMarkdownHtml = (content: string) => {
+    const htmlContent = markdownToHtml(content);
+    return { __html: htmlContent };
+  };
 
   return (
     <Card className="p-4 mb-4 relative">
@@ -72,29 +130,126 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
                 <circle cx="19" cy="12" r="1" />
                 <circle cx="5" cy="12" r="1" />
               </svg>
-              <span className="sr-only">{t("menu")}</span>
+              <span className="sr-only">{t("menu") || "Menu"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onEdit(note)}>
               <Edit className="w-4 h-4 mr-2" />
-              {t("edit")}
+              {t("edit") || "Edit"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleGetSuggestions} disabled={suggestionsLoading}>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="w-4 h-4 mr-2"
+              >
+                <path d="M2 12h10" />
+                <path d="M9 4v16" />
+                <path d="m14 4 7 7-7 7" />
+              </svg>
+              {suggestionsLoading 
+                ? (t("loading") || "Loading...") 
+                : (t("getSuggestions") || "Smart Suggestions")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExpandNote} disabled={expandLoading}>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="w-4 h-4 mr-2"
+              >
+                <path d="M3 3v18h18" />
+                <path d="m3 15 5-5c.83-.83 2.17-.83 3 0l3 3c.83.83 2.17.83 3 0l3-3" />
+              </svg>
+              {expandLoading 
+                ? (t("loading") || "Loading...") 
+                : (t("expandNote") || "Expand Note")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDelete(note.id)} className="text-red-600">
               <Trash className="w-4 h-4 mr-2" />
-              {t("delete")}
+              {t("delete") || "Delete"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      
       <p className="text-sm text-gray-500 mb-2">
         {new Date(note.updatedAt).toLocaleString()}
       </p>
-      <p className="mb-3">
-        {note.content.length > maxContentLength
-          ? `${note.content.substring(0, maxContentLength)}...`
-          : note.content}
-      </p>
+      
+      {/* Normal content view with markdown support */}
+      {!isExpanded && (
+        <>
+          {showFullContent ? (
+            <div 
+              className="prose prose-sm max-w-none mb-3" 
+              dangerouslySetInnerHTML={createMarkdownHtml(note.content)} 
+            />
+          ) : (
+            <div className="mb-3">
+              <p>{truncatedContent}</p>
+              {note.content.length > maxContentLength && (
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-xs"
+                  onClick={() => setShowFullContent(true)}
+                >
+                  {t("readMore") || "Read more"}
+                </Button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+      
+      {/* Expanded content view */}
+      {isExpanded && (
+        <div className="mb-3">
+          <div 
+            className="prose prose-sm max-w-none mb-3 p-3 bg-secondary/30 rounded-md" 
+            dangerouslySetInnerHTML={createMarkdownHtml(expandedContent)} 
+          />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={() => setIsExpanded(false)}
+          >
+            {t("showOriginal") || "Show Original"}
+          </Button>
+        </div>
+      )}
+      
+      {/* Smart suggestions section */}
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="mb-4 mt-2 p-3 bg-primary/10 rounded-md">
+          <h4 className="text-sm font-semibold mb-2">{t("smartSuggestions") || "Smart Suggestions"}</h4>
+          <ul className="pl-5 text-sm list-disc space-y-1">
+            {suggestions.map((suggestion, index) => (
+              <li key={index}>{suggestion}</li>
+            ))}
+          </ul>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mt-2 text-xs"
+            onClick={() => setShowSuggestions(false)}
+          >
+            {t("hideSuggestions") || "Hide Suggestions"}
+          </Button>
+        </div>
+      )}
+      
       <div className="flex flex-wrap gap-2 mt-2">
         {note.tags.map((tag) => (
           <Badge key={tag} variant="secondary">
@@ -115,6 +270,7 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
   const [content, setContent] = useState(note?.content || "");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>(note?.tags || []);
+  const [previewMode, setPreviewMode] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async (data: { title: string; content: string; tags: string[]; projectId: number }) => {
@@ -128,14 +284,14 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
       toast({
-        title: t("noteCreated"),
-        description: t("noteCreatedDescription"),
+        title: t("noteCreated") || "Note Created",
+        description: t("noteCreatedDescription") || "Your note has been created successfully.",
       });
       onClose();
     },
     onError: (error: Error) => {
       toast({
-        title: t("error"),
+        title: t("error") || "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -154,14 +310,14 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/notes`] });
       toast({
-        title: t("noteUpdated"),
-        description: t("noteUpdatedDescription"),
+        title: t("noteUpdated") || "Note Updated",
+        description: t("noteUpdatedDescription") || "Your note has been updated successfully.",
       });
       onClose();
     },
     onError: (error: Error) => {
       toast({
-        title: t("error"),
+        title: t("error") || "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -184,8 +340,8 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     
     if (!title.trim() || !content.trim()) {
       toast({
-        title: t("validationError"),
-        description: t("titleAndContentRequired"),
+        title: t("validationError") || "Validation Error",
+        description: t("titleAndContentRequired") || "Title and content are required.",
         variant: "destructive",
       });
       return;
@@ -208,39 +364,212 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
     }
   };
 
+  // Insert markdown formatting helpers
+  const insertMarkdown = (markdownSyntax: string, placeholder: string = "") => {
+    const textarea = document.getElementById("content") as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    const textToInsert = selectedText || placeholder;
+    
+    const newContent = 
+      content.substring(0, start) + 
+      markdownSyntax.replace("$1", textToInsert) + 
+      content.substring(end);
+    
+    setContent(newContent);
+    
+    // Focus back on textarea after insertion
+    setTimeout(() => {
+      textarea.focus();
+      
+      // Set cursor position
+      const newPosition = start + markdownSyntax.indexOf("$1") + (selectedText || placeholder).length;
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
+  };
+
+  // Create a safe HTML string from markdown content for preview
+  const createMarkdownHtml = (markdownContent: string) => {
+    const htmlContent = markdownToHtml(markdownContent);
+    return { __html: htmlContent };
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="title">{t("title")}</Label>
+        <Label htmlFor="title">{t("title") || "Title"}</Label>
         <Input
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("enterTitle")}
+          placeholder={t("enterTitle") || "Enter a title"}
           required
         />
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="content">{t("content")}</Label>
-        <Textarea
-          id="content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={t("enterContent")}
-          className="min-h-[200px]"
-          required
-        />
+        <div className="flex justify-between items-center">
+          <Label htmlFor="content">{t("content") || "Content"}</Label>
+          <div className="flex items-center justify-end space-x-1">
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setPreviewMode(!previewMode)}
+            >
+              {previewMode ? (t("edit") || "Edit") : (t("preview") || "Preview")}
+            </Button>
+          </div>
+        </div>
+        
+        {/* Markdown toolbar */}
+        {!previewMode && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("**$1**", "bold text")}
+              title={t("bold") || "Bold"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
+                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("*$1*", "italic text")}
+              title={t("italic") || "Italic"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="4" x2="10" y2="4"/>
+                <line x1="14" y1="20" x2="5" y2="20"/>
+                <line x1="15" y1="4" x2="9" y2="20"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("# $1", "Heading")}
+              title={t("heading") || "Heading"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 12h12"/>
+                <path d="M6 4h12"/>
+                <path d="M9 4v16"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("- $1", "List item")}
+              title={t("list") || "List"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("1. $1", "Numbered item")}
+              title={t("numberedList") || "Numbered List"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="10" y1="6" x2="21" y2="6"/>
+                <line x1="10" y1="12" x2="21" y2="12"/>
+                <line x1="10" y1="18" x2="21" y2="18"/>
+                <path d="M4 6h1v4"/>
+                <path d="M4 16a1 1 0 0 0 1 1h.5a1 1 0 0 0 0-2H5V14a1 1 0 0 0 2 0"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("[title](https://example.com)", "Link")}
+              title={t("link") || "Link"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2"
+              onClick={() => insertMarkdown("```\n$1\n```", "code block")}
+              title={t("codeBlock") || "Code Block"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </Button>
+          </div>
+        )}
+        
+        {/* Content input or preview */}
+        {previewMode ? (
+          <div className="border rounded-md p-4 min-h-[200px] prose prose-sm max-w-none">
+            {content ? (
+              <div dangerouslySetInnerHTML={createMarkdownHtml(content)} />
+            ) : (
+              <p className="text-muted-foreground">
+                {t("previewEmpty") || "Nothing to preview yet..."}
+              </p>
+            )}
+          </div>
+        ) : (
+          <Textarea
+            id="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={t("enterContent") || "Enter content (Markdown supported)"}
+            className="min-h-[200px] font-mono text-sm"
+            required
+          />
+        )}
+        
+        {/* Markdown help */}
+        {!previewMode && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {t("markdownSupported") || "Markdown formatting is supported. Use toolbar or manually format text."}
+          </p>
+        )}
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="tags">{t("tags")}</Label>
+        <Label htmlFor="tags">{t("tags") || "Tags"}</Label>
         <div className="flex items-center gap-2">
           <Input
             id="tags"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            placeholder={t("enterTag")}
+            placeholder={t("enterTag") || "Enter a tag"}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -249,7 +578,7 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
             }}
           />
           <Button type="button" onClick={handleAddTag} size="sm">
-            {t("add")}
+            {t("add") || "Add"}
           </Button>
         </div>
         
@@ -264,10 +593,10 @@ function NoteForm({ note, onClose, projectId }: { note?: Note; onClose: () => vo
       
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>
-          {t("cancel")}
+          {t("cancel") || "Cancel"}
         </Button>
         <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-          {note ? t("updateNote") : t("createNote")}
+          {note ? (t("updateNote") || "Update Note") : (t("createNote") || "Create Note")}
         </Button>
       </DialogFooter>
     </form>
