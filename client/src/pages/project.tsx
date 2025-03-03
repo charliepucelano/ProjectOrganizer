@@ -35,6 +35,7 @@ export default function ProjectPage() {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("overview");
   const [showAddTodo, setShowAddTodo] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
