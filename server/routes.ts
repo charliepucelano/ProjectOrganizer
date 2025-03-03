@@ -952,20 +952,15 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/notes/tag/:tag", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/notes/tag/:tag", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
       const tag = req.params.tag;
-      const project = await storage.getProject(projectId);
-      const user = req.user!;
-      
-      if (project.userId !== user.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // The middleware has already checked access permissions
       const notes = await storage.getNotesByTag(projectId, tag);
       res.json(notes);
     } catch (err) {
+      console.error("Error getting notes by tag:", err);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -1003,17 +998,12 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/notes/search", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/notes/search", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
       const query = req.query.q as string;
-      const project = await storage.getProject(projectId);
-      const user = req.user!;
       
-      if (project.userId !== user.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // The middleware has already checked access permissions
       if (!query) {
         return res.status(400).json({ error: "Search query is required" });
       }
@@ -1021,6 +1011,7 @@ export async function registerRoutes(app: Express) {
       const notes = await storage.searchNotes(projectId, query);
       res.json(notes);
     } catch (err) {
+      console.error("Error searching notes:", err);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -1053,18 +1044,22 @@ export async function registerRoutes(app: Express) {
    */
   app.post("/api/notes", requireAuth, async (req, res) => {
     try {
-      const user = req.user!;
       const noteData = req.body;
       
       // Validate the note data
       try {
         const parsedData = insertNoteSchema.parse(noteData);
         
-        // Check if user has access to the project
-        const project = await storage.getProject(parsedData.projectId);
+        // Check if user has access to the project with at least EDITOR role
+        const projectId = parsedData.projectId;
+        const userRole = await storage.getUserRole(projectId, req.user!.id);
         
-        if (project.userId !== user.id) {
+        if (!userRole) {
           return res.status(403).json({ error: "You don't have access to this project" });
+        }
+        
+        if (userRole === UserRole.VIEWER) {
+          return res.status(403).json({ error: "You need editor or owner role to create notes" });
         }
         
         const note = await storage.createNote(parsedData);
@@ -1112,17 +1107,24 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/notes/:id", requireAuth, async (req, res) => {
     try {
       const noteId = parseInt(req.params.id);
-      const user = req.user!;
       const note = await storage.getNoteById(noteId);
-      const project = await storage.getProject(note.projectId);
       
-      if (project.userId !== user.id) {
-        return res.status(403).json({ error: "You don't have access to this note" });
+      // Check if user has access to the project with at least EDITOR role
+      const projectId = note.projectId;
+      const userRole = await storage.getUserRole(projectId, req.user!.id);
+      
+      if (!userRole) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      if (userRole === UserRole.VIEWER) {
+        return res.status(403).json({ error: "You need editor or owner role to update notes" });
       }
       
       const updatedNote = await storage.updateNote(noteId, req.body);
       res.json(updatedNote);
     } catch (err) {
+      console.error("Error updating note:", err);
       res.status(404).json({ error: "Note not found" });
     }
   });
@@ -1152,17 +1154,24 @@ export async function registerRoutes(app: Express) {
   app.delete("/api/notes/:id", requireAuth, async (req, res) => {
     try {
       const noteId = parseInt(req.params.id);
-      const user = req.user!;
       const note = await storage.getNoteById(noteId);
-      const project = await storage.getProject(note.projectId);
       
-      if (project.userId !== user.id) {
-        return res.status(403).json({ error: "You don't have access to this note" });
+      // Check if user has access to the project with at least EDITOR role
+      const projectId = note.projectId;
+      const userRole = await storage.getUserRole(projectId, req.user!.id);
+      
+      if (!userRole) {
+        return res.status(403).json({ error: "You don't have access to this project" });
+      }
+      
+      if (userRole === UserRole.VIEWER) {
+        return res.status(403).json({ error: "You need editor or owner role to delete notes" });
       }
       
       await storage.deleteNote(noteId);
       res.status(204).end();
     } catch (err) {
+      console.error("Error deleting note:", err);
       res.status(404).json({ error: "Note not found" });
     }
   });

@@ -284,7 +284,7 @@ export default function ProjectPage() {
         </div>
         
         <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">
               <Home className="h-4 w-4 mr-2" />
               {t('common.overview')}
@@ -300,6 +300,22 @@ export default function ProjectPage() {
             <TabsTrigger value="calendar">
               <CalendarDays className="h-4 w-4 mr-2" />
               {t('common.calendar')}
+            </TabsTrigger>
+            <TabsTrigger value="notes" onClick={() => navigate(`/project/${projectId}/notes`)}>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="h-4 w-4 mr-2"
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              {t('common.notes') || 'Notes'}
             </TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-2" />

@@ -9,6 +9,7 @@ import Categories from "@/pages/categories";
 import AuthPage from "@/pages/auth";
 import Projects from "@/pages/projects";
 import ProjectPage from "@/pages/project";
+import Notes from "@/pages/notes";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -85,6 +86,7 @@ function Router() {
       <ProtectedRoute path="/categories" component={Categories} />
       <ProtectedRoute path="/projects" component={Projects} />
       <ProtectedRoute path="/project/:id" component={ProjectPage} />
+      <ProtectedRoute path="/project/:projectId/notes" component={Notes} />
       <Route component={NotFound} />
     </Switch>
   );
