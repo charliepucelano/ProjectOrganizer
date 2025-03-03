@@ -33,10 +33,13 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
     enabled: !!projectId
   });
 
-  // Combine default categories with custom categories
-  const categories = projectId 
+  // Combine default categories with custom categories, making sure there are no duplicates
+  const allCategories = projectId && customCategories.length > 0
     ? [...defaultTodoCategories, ...customCategories.map((cat: any) => cat.name)]
     : defaultTodoCategories;
+    
+  // Remove duplicates by converting to Set and back to array
+  const categories = [...new Set(allCategories)];
 
   const form = useForm({
     resolver: zodResolver(insertTodoSchema),

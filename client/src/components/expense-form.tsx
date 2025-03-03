@@ -27,10 +27,14 @@ export default function ExpenseForm({ expense, onCancel, projectId, onSuccess }:
     enabled: !!projectId
   });
 
-  const expenseCategories = [
+  // Combine default categories with custom categories
+  const allExpenseCategories = [
     ...defaultExpenseCategories,
     ...(customCategories?.map ? customCategories.map((c: any) => c.name) : [])
   ];
+  
+  // Remove duplicates by converting to Set and back to array
+  const expenseCategories = [...new Set(allExpenseCategories)];
 
   const form = useForm({
     resolver: zodResolver(insertExpenseSchema),
