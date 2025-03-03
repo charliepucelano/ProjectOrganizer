@@ -54,6 +54,7 @@ type Note = {
 function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: number) => void; onEdit: (note: Note) => void }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const maxContentLength = isMobile ? 100 : 150;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -191,8 +192,7 @@ Please refine the original research based on these instructions.
       setResearchAction("save");
       
       // Invalidate queries to refresh note list and update the current note
-      const qClient = useQueryClient();
-      qClient.invalidateQueries({ queryKey: [`/api/projects/${note.projectId}/notes`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${note.projectId}/notes`] });
       
       // Update the note object directly to reflect the new content
       note.content = expandedContent;

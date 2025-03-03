@@ -200,40 +200,60 @@ export async function expandNote(content: string, title: string, tags: string[] 
     
     // Process the response to clean up any issues
     
-    // Remove citation references
+    // Remove citation references that aren't part of links
     responseContent = responseContent.replace(/\[(\d+)\](?!\()/g, '');
     
     // Remove any trailing whitespace after removing citations
     responseContent = responseContent.replace(/\s+\./g, '.');
     responseContent = responseContent.replace(/\s+,/g, ',');
     
-    // Fix any malformed URLs (sometimes Perplexity returns broken HTML in the markdown)
-    responseContent = responseContent.replace(/\[(.*?)\]\((.*?) target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
-    responseContent = responseContent.replace(/\[(.*?)\]\((.*?)#(.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2#$3)');
-    responseContent = responseContent.replace(/\[(.*?)\]\((.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
+    // First pass: completely fix common broken link patterns
+    // Handle the most common broken link format with HTML attributes
+    responseContent = responseContent.replace(/\[(.*?)\]\((https?:\/\/[^"]*)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
     
-    // Clean up any other HTML that might have been included
-    responseContent = responseContent.replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)');
+    // Fix partial HTML in links with fragments
+    responseContent = responseContent.replace(/\[(.*?)\]\((https?:\/\/[^"]*?)#([^"]*)" target="_blank" rel="noopener noreferrer">([^<]*?)\)/g, '[$1]($2#$3)');
     
-    // Fix any markdown links that might be broken by having spaces
-    responseContent = responseContent.replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\s+(.*?)\)/g, '[$1]($2$3)');
+    // Clean up any direct HTML links
+    responseContent = responseContent.replace(/<a href="(https?:\/\/[^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)');
     
-    // More aggressive cleanup for any remaining HTML or malformed links
-    const linkRegex = /\[(.*?)\]\((.*?)\)/g;
-    const matches = responseContent.matchAll(linkRegex);
+    // Fix links with spaces in them (which breaks markdown)
+    responseContent = responseContent.replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\s+([^)]*)\)/g, '[$1]($2$3)');
     
-    for (const match of matches) {
+    // Second pass: custom cleanup for more complex cases
+    // Find all markdown links in the document
+    let allLinks = [...responseContent.matchAll(/\[(.*?)\]\((.*?)\)/g)];
+    
+    // Process each link to fix any remaining issues
+    for (const match of allLinks) {
       const fullMatch = match[0];
-      const text = match[1];
-      let url = match[2];
+      const linkText = match[1];
+      const linkUrl = match[2];
       
-      // Check if URL contains any HTML tags or quotes, which indicates it's broken
-      if (url.includes('"') || url.includes('>') || url.includes('<')) {
-        // Extract just the URL part
-        const cleanUrl = url.split('"')[0].split('<')[0].split('>')[0];
-        responseContent = responseContent.replace(fullMatch, `[${text}](${cleanUrl})`);
+      // Only process this link if it looks malformed
+      if (linkUrl.includes('"') || linkUrl.includes('>') || linkUrl.includes('<') || 
+          linkUrl.includes('target=') || linkUrl.includes('rel=')) {
+        
+        // Extract just the URL part - stopping at first quote or angle bracket
+        let cleanedUrl = linkUrl;
+        const quotePos = cleanedUrl.indexOf('"');
+        const ltPos = cleanedUrl.indexOf('<');
+        const gtPos = cleanedUrl.indexOf('>');
+        
+        let cutoffPoint = cleanedUrl.length;
+        if (quotePos > 0 && quotePos < cutoffPoint) cutoffPoint = quotePos;
+        if (ltPos > 0 && ltPos < cutoffPoint) cutoffPoint = ltPos;
+        if (gtPos > 0 && gtPos < cutoffPoint) cutoffPoint = gtPos;
+        
+        cleanedUrl = cleanedUrl.substring(0, cutoffPoint);
+        
+        // Replace the malformed link with the cleaned version
+        responseContent = responseContent.replace(fullMatch, `[${linkText}](${cleanedUrl})`);
       }
     }
+    
+    // Remove any remaining HTML tags 
+    responseContent = responseContent.replace(/<\/?[^>]+(>|$)/g, "");
     
     console.log("=== CLEANED RESPONSE ===");
     console.log(responseContent);
