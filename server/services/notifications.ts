@@ -23,6 +23,8 @@ export async function sendTaskNotification(
   todo: Todo
 ) {
   try {
+    console.log(`Attempting to send notification for task "${todo.title}" to subscription ${subscription.id}`);
+
     const payload = JSON.stringify({
       title: 'Task Reminder',
       body: `Task "${todo.title}" is ${todo.dueDate && new Date(todo.dueDate) < new Date() ? 'overdue' : 'due soon'}!`,
@@ -38,8 +40,15 @@ export async function sendTaskNotification(
     }, payload);
 
     await storage.updateLastNotified(subscription.id, new Date());
+    console.log(`Successfully sent notification for task "${todo.title}"`);
   } catch (error: any) {
     console.error('Error sending push notification:', error);
+    console.error('Subscription details:', {
+      endpoint: subscription.endpoint,
+      hasP256dh: !!subscription.p256dh,
+      hasAuth: !!subscription.auth
+    });
+
     if (error.statusCode === 410) {
       // Subscription has expired or is no longer valid
       console.log('Subscription is no longer valid:', subscription.endpoint);

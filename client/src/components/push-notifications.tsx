@@ -7,9 +7,12 @@ import { apiRequest } from '@/lib/queryClient';
 async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
+      console.log('Registering service worker...');
       const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('Service Worker registered:', registration);
       return registration;
     } catch (error) {
+      console.error('Service Worker registration failed:', error);
       throw new Error('Service Worker registration failed');
     }
   }
@@ -18,15 +21,20 @@ async function registerServiceWorker() {
 
 async function subscribeToPushNotifications(registration: ServiceWorkerRegistration) {
   try {
+    console.log('Fetching VAPID key...');
     const response = await fetch('/api/push/vapidKey');
     const { vapidKey } = await response.json();
+    console.log('VAPID key received');
 
+    console.log('Subscribing to push notifications...');
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: vapidKey
     });
+    console.log('Push subscription created:', subscription);
 
     // Send the subscription to the server
+    console.log('Sending subscription to server...');
     await apiRequest('POST', '/api/push/subscribe', {
       endpoint: subscription.endpoint,
       p256dh: arrayBufferToBase64(
@@ -36,9 +44,11 @@ async function subscribeToPushNotifications(registration: ServiceWorkerRegistrat
         subscription.getKey('auth')!
       )
     });
+    console.log('Subscription saved on server');
 
     return subscription;
   } catch (error) {
+    console.error('Failed to subscribe to push notifications:', error);
     throw new Error('Failed to subscribe to push notifications');
   }
 }
@@ -58,6 +68,7 @@ export default function PushNotifications() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(registration => {
         registration.pushManager.getSubscription().then(subscription => {
+          console.log('Current push subscription:', subscription);
           setIsSubscribed(!!subscription);
           setIsLoading(false);
         });
@@ -77,6 +88,7 @@ export default function PushNotifications() {
         description: "You'll receive notifications for tasks due soon",
       });
     } catch (error) {
+      console.error('Error enabling notifications:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to enable notifications',
