@@ -28,11 +28,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Trash, Edit, Plus, Check, X, Loader2, Filter } from "lucide-react";
+import { TagIcon, Search } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-
-import { Edit, Trash, Plus, Search, Tag as TagIcon, Filter } from "lucide-react";
+import { markdownToHtml, getSmartSuggestions, expandNote as expandNoteWithAI } from "@/lib/perplexity";
 
 type Note = {
   id: number;
@@ -43,8 +50,6 @@ type Note = {
   createdAt: string;
   updatedAt: string;
 };
-
-import { markdownToHtml, getSmartSuggestions, expandNote as expandNoteWithAI } from "@/lib/perplexity";
 
 function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: number) => void; onEdit: (note: Note) => void }) {
   const { t } = useTranslation();
@@ -78,23 +83,76 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
     }
   };
 
-  // Expand note with AI-generated content
-  const handleExpandNote = async () => {
+  // Research note with AI-generated content
+  const [researchModalOpen, setResearchModalOpen] = useState(false);
+  const [refinementPrompt, setRefinementPrompt] = useState("");
+  const [refinementLoading, setRefinementLoading] = useState(false);
+  const [researchAction, setResearchAction] = useState<"save" | "refine" | "discard" | null>(null);
+  
+  const handleResearchNote = async () => {
     setExpandLoading(true);
     try {
       const expanded = await expandNoteWithAI(note.content, note.title, note.tags);
       setExpandedContent(expanded);
-      setIsExpanded(true);
+      setResearchModalOpen(true);
     } catch (error) {
-      console.error("Error expanding note:", error);
+      console.error("Error researching note:", error);
       toast({
         title: t("error") || "Error",
-        description: t("expandError") || "Failed to expand note. Please try again.",
+        description: t("expandError") || "Failed to research note. Please try again.",
         variant: "destructive",
       });
     } finally {
       setExpandLoading(false);
     }
+  };
+  
+  const handleRefinement = async () => {
+    if (!refinementPrompt.trim()) {
+      toast({
+        title: t("validationError") || "Validation Error",
+        description: t("refinementPromptRequired") || "Please enter refinement instructions.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setRefinementLoading(true);
+    try {
+      // Create a combined prompt with original content and refinement request
+      const combinedPrompt = `
+Original Research: 
+${expandedContent}
+
+Refinement Instructions: 
+${refinementPrompt}
+
+Please refine the original research based on these instructions.
+`;
+      const refined = await expandNoteWithAI(combinedPrompt, note.title, note.tags);
+      setExpandedContent(refined);
+      setRefinementPrompt("");
+      toast({
+        title: t("refinementComplete") || "Refinement Complete",
+        description: t("refinementCompleteDescription") || "Your research has been refined.",
+      });
+    } catch (error) {
+      console.error("Error refining research:", error);
+      toast({
+        title: t("error") || "Error",
+        description: t("refinementError") || "Failed to refine research. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefinementLoading(false);
+    }
+  };
+  
+  const handleSaveResearch = async () => {
+    // Implementation for saving would be handled by parent component
+    setResearchModalOpen(false);
+    setIsExpanded(true);
+    setResearchAction("save");
   };
 
   const truncatedContent = note.content.length > maxContentLength
@@ -157,7 +215,7 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
                 ? (t("loading") || "Loading...") 
                 : (t("getSuggestions") || "Smart Suggestions")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExpandNote} disabled={expandLoading}>
+            <DropdownMenuItem onClick={handleResearchNote} disabled={expandLoading}>
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 viewBox="0 0 24 24" 
@@ -168,12 +226,13 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
                 strokeLinejoin="round" 
                 className="w-4 h-4 mr-2"
               >
-                <path d="M3 3v18h18" />
-                <path d="m3 15 5-5c.83-.83 2.17-.83 3 0l3 3c.83.83 2.17.83 3 0l3-3" />
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
               </svg>
               {expandLoading 
                 ? (t("loading") || "Loading...") 
-                : (t("expandNote") || "Expand Note")}
+                : (t("researchNote") || "Research Note")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDelete(note.id)} className="text-red-600">
               <Trash className="w-4 h-4 mr-2" />
@@ -229,6 +288,82 @@ function NoteCard({ note, onDelete, onEdit }: { note: Note; onDelete: (id: numbe
           </Button>
         </div>
       )}
+      
+      {/* Research note modal */}
+      <Dialog open={researchModalOpen} onOpenChange={setResearchModalOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("researchResults") || "Research Results"}</DialogTitle>
+            <DialogDescription>
+              {t("researchResultsDescription") || "AI-powered research based on your note content."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="prose prose-sm max-w-none mb-4 p-4 border rounded-md bg-card">
+              <div dangerouslySetInnerHTML={createMarkdownHtml(expandedContent)} />
+            </div>
+            
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">{t("whatNext") || "What would you like to do?"}</h4>
+              
+              <div className="flex flex-col space-y-2">
+                <Button
+                  variant="default"
+                  onClick={handleSaveResearch}
+                  className="justify-start"
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  {t("saveResearch") || "Save this research"}
+                </Button>
+                
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="refine">
+                    <AccordionTrigger className="text-left">
+                      <div className="flex items-center">
+                        <Edit className="mr-2 h-4 w-4" />
+                        {t("refineResearch") || "Refine this research"}
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
+                        <Textarea
+                          value={refinementPrompt}
+                          onChange={(e) => setRefinementPrompt(e.target.value)}
+                          placeholder={t("refinementInstructions") || "Enter specific instructions for refinement..."}
+                          className="min-h-[100px]"
+                        />
+                        <Button 
+                          onClick={handleRefinement}
+                          disabled={refinementLoading}
+                        >
+                          {refinementLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {t("refining") || "Refining..."}
+                            </>
+                          ) : (
+                            <>{t("refine") || "Refine"}</>
+                          )}
+                        </Button>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setResearchModalOpen(false)}
+                  className="justify-start"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  {t("discardResearch") || "Discard this research"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Smart suggestions section */}
       {showSuggestions && suggestions.length > 0 && (
