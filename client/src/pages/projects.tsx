@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Project } from "@shared/schema";
-import { ProtectedRoute } from "@/lib/protected-route";
 import type { InsertProject } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -162,13 +161,12 @@ export default function Projects() {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="container py-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Projects</h1>
-            <p className="text-muted-foreground">Manage your move-in projects</p>
-          </div>
+    <div className="container py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Projects</h1>
+          <p className="text-muted-foreground">Manage your move-in projects</p>
+        </div>
           {projects.length > 0 && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -275,6 +273,5 @@ export default function Projects() {
           <EmptyState />
         )}
       </div>
-    </ProtectedRoute>
   );
 }
