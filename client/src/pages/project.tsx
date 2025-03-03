@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient } from "@/lib/queryClient";
@@ -435,7 +436,7 @@ export default function ProjectPage() {
             
             <Card>
               <CardHeader>
-                <CardTitle>Budget Breakdown</CardTitle>
+                <CardTitle>All Expenses</CardTitle>
               </CardHeader>
               <CardContent>
                 {expensesLoading ? (
@@ -444,62 +445,7 @@ export default function ProjectPage() {
                       <Skeleton key={i} className="h-12 w-full" />
                     ))}
                   </div>
-                ) : expenses.filter(e => e.isBudget).length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-muted/50">
-                            <th className="p-2 text-left">Category</th>
-                            <th className="p-2 text-left">Description</th>
-                            <th className="p-2 text-right">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {expenses
-                            .filter(e => e.isBudget)
-                            .map(expense => (
-                              <tr key={expense.id} className="border-t">
-                                <td className="p-2">{expense.category}</td>
-                                <td className="p-2">{expense.description}</td>
-                                <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                        <tfoot className="border-t">
-                          <tr className="font-bold">
-                            <td className="p-2" colSpan={2}>Total</td>
-                            <td className="p-2 text-right">${totalBudget.toFixed(2)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">No budget items yet</p>
-                    {!showAddExpense && (
-                      <Button onClick={() => setShowAddExpense(true)}>
-                        Add budget item
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Expenses</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {expensesLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : expenses.filter(e => !e.isBudget).length > 0 ? (
+                ) : expenses.length > 0 ? (
                   <div className="space-y-4">
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full">
@@ -508,25 +454,37 @@ export default function ProjectPage() {
                             <th className="p-2 text-left">Date</th>
                             <th className="p-2 text-left">Category</th>
                             <th className="p-2 text-left">Description</th>
+                            <th className="p-2 text-center">Status</th>
                             <th className="p-2 text-right">Amount</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {expenses
-                            .filter(e => !e.isBudget)
-                            .map(expense => (
-                              <tr key={expense.id} className="border-t">
-                                <td className="p-2">{new Date(expense.date).toLocaleDateString()}</td>
-                                <td className="p-2">{expense.category}</td>
-                                <td className="p-2">{expense.description}</td>
-                                <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
-                              </tr>
-                            ))}
+                          {expenses.map(expense => (
+                            <tr key={expense.id} className="border-t">
+                              <td className="p-2">{new Date(expense.date).toLocaleDateString()}</td>
+                              <td className="p-2">{expense.category}</td>
+                              <td className="p-2">{expense.description}</td>
+                              <td className="p-2 text-center">
+                                <Badge variant={expense.isBudget ? "outline" : "default"}>
+                                  {expense.isBudget ? "Planned" : "Paid"}
+                                </Badge>
+                              </td>
+                              <td className="p-2 text-right">${expense.amount.toFixed(2)}</td>
+                            </tr>
+                          ))}
                         </tbody>
                         <tfoot className="border-t">
                           <tr className="font-bold">
-                            <td className="p-2" colSpan={3}>Total</td>
-                            <td className="p-2 text-right">${totalSpent.toFixed(2)}</td>
+                            <td className="p-2" colSpan={2}>Total Budget</td>
+                            <td className="p-2 text-right" colSpan={3}>${totalBudget.toFixed(2)}</td>
+                          </tr>
+                          <tr className="font-bold">
+                            <td className="p-2" colSpan={2}>Total Spent</td>
+                            <td className="p-2 text-right" colSpan={3}>${totalSpent.toFixed(2)}</td>
+                          </tr>
+                          <tr className="font-bold">
+                            <td className="p-2" colSpan={2}>Remaining</td>
+                            <td className="p-2 text-right" colSpan={3}>${(totalBudget - totalSpent).toFixed(2)}</td>
                           </tr>
                         </tfoot>
                       </table>
