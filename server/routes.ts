@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express) {
         if (expense.category.toLowerCase() === categoryName.toLowerCase()) {
           await storage.updateExpense(expense.id, {
             ...expense,
-            category: "Other",
+            category: "Unassigned",
           });
         }
       }

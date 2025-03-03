@@ -2,16 +2,11 @@ import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-
 import { z } from "zod";
 
 export const defaultCategories = [
-  "Unassigned", // Default for both, cannot be deleted
+  "Unassigned", // Default category that cannot be deleted
   "Financial Obligations",
   "Moving",
   "Utilities",
-  "Furniture",
-  "Repairs",
-  "Improvements",
-  "Appliances",
-  "Decor",
-  "Other"
+  "Furniture"
 ] as const;
 
 // Use the same categories for todos and expenses
