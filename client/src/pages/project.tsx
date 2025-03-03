@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient } from "@/lib/queryClient";
 import { Project } from "@shared/schema";
+import { useTranslation } from "react-i18next";
+import ProjectSettings from "@/components/project-settings";
 
 import TodoList from "@/components/todo-list";
 import TodoForm from "@/components/todo-form";
@@ -281,22 +283,26 @@ export default function ProjectPage() {
         </div>
         
         <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">
               <Home className="h-4 w-4 mr-2" />
-              Overview
+              {t('common.overview')}
             </TabsTrigger>
             <TabsTrigger value="todos">
               <ListTodo className="h-4 w-4 mr-2" />
-              Tasks
+              {t('common.tasks')}
             </TabsTrigger>
             <TabsTrigger value="expenses">
               <DollarSign className="h-4 w-4 mr-2" />
-              Budget & Expenses
+              {t('common.budget')}
             </TabsTrigger>
             <TabsTrigger value="calendar">
               <CalendarDays className="h-4 w-4 mr-2" />
-              Calendar
+              {t('common.calendar')}
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              {t('common.settings')}
             </TabsTrigger>
           </TabsList>
           
