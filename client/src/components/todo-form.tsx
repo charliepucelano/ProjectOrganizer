@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { insertTodoSchema, defaultTodoCategories } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,6 +76,7 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
 
         const todoData = await todoResponse.json();
 
+        // If this task has an associated expense, create the expense record
         if (values.hasAssociatedExpense && values.estimatedAmount > 0) {
           await apiRequest("POST", "/api/expenses", {
             description: values.title,
@@ -83,7 +84,7 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
             category: values.category || "Unassigned",
             date: values.dueDate || new Date().toISOString(),
             todoId: todoData.id,
-            isBudget: 1, // Set to 1 to mark it as a budget item until the task is completed
+            isBudget: 1, // Set to 1 (unpaid) until the task is completed
             completedAt: null,
             projectId: projectId || null
           });
@@ -312,6 +313,9 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
                   />
                 </FormControl>
               </div>
+              <FormDescription>
+                Creates an expense that will be marked as paid when this task is completed.
+              </FormDescription>
             </FormItem>
           )}
         />

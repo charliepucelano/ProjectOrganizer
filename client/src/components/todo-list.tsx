@@ -107,6 +107,7 @@ export default function TodoList({ todos, projectId }: TodoListProps) {
 
   const toggleMutation = useMutation({
     mutationFn: async (todo: Todo) => {
+      // Toggle todo completion status
       const completed = todo.completed ? 0 : 1;
       await apiRequest(
         "PATCH",
@@ -114,8 +115,9 @@ export default function TodoList({ todos, projectId }: TodoListProps) {
         { completed }
       );
 
+      // If this todo has an associated expense, update its payment status
       if (todo.hasAssociatedExpense) {
-        // Get relevant expenses (project-specific or global)
+        // Get all expenses to find the one associated with this todo
         const endpoint = projectId 
           ? `/api/projects/${projectId}/expenses`
           : "/api/expenses";
@@ -125,11 +127,13 @@ export default function TodoList({ todos, projectId }: TodoListProps) {
         const expense = expenses.find((e: any) => e.todoId === todo.id);
 
         if (expense) {
+          // When todo is completed, mark expense as paid (isBudget = 0)
+          // When todo is uncompleted, mark expense as unpaid (isBudget = 1)
           await apiRequest(
             "PATCH",
             `/api/expenses/${expense.id}`,
             {
-              isBudget: completed ? 0 : 1,
+              isBudget: completed ? 0 : 1, // 0 = paid, 1 = unpaid/budget item
               completedAt: completed ? new Date().toISOString() : null
             }
           );
