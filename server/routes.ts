@@ -9,11 +9,12 @@ import {
   insertProjectSchema,
   insertCustomCategorySchema,
   insertNoteSchema,
+  UserRole,
 } from "@shared/schema";
 import { ZodError } from "zod";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./swagger";
-import { requireAuth } from "./auth";
+import { requireAuth, requireProjectAccess, requireResourceAccess } from "./auth";
 import {
   getAuthUrl,
   setCredentials,
@@ -170,19 +171,15 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.patch("/api/projects/:id", requireAuth, async (req, res) => {
+  app.patch("/api/projects/:id", requireProjectAccess(UserRole.EDITOR), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(id);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // With the new middleware, we've already verified access with minimum editor role
       const updatedProject = await storage.updateProject(id, req.body);
       res.json(updatedProject);
     } catch (error) {
+      console.error("Error updating project:", error);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -207,19 +204,15 @@ export async function registerRoutes(app: Express) {
    *       403:
    *         description: Forbidden - you don't have access to this project
    */
-  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
+  app.delete("/api/projects/:id", requireProjectAccess(UserRole.OWNER), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(id);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // With the new middleware, we've already verified owner access
       await storage.deleteProject(id);
       res.status(204).end();
     } catch (error) {
+      console.error("Error deleting project:", error);
       res.status(404).json({ error: "Project not found" });
     }
   });
@@ -252,19 +245,14 @@ export async function registerRoutes(app: Express) {
    *       404:
    *         description: Project not found
    */
-  app.get("/api/projects/:projectId/categories", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/categories", requireProjectAccess(), async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
-      
-      // Check if the project exists and belongs to the current user
-      const project = await storage.getProject(projectId);
-      if (project.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You don't have access to this project" });
-      }
-      
+      // With middleware we've already checked access
       const categories = await storage.getCustomCategories(projectId);
       res.json(categories);
     } catch (error) {
+      console.error("Error getting categories:", error);
       res.status(404).json({ error: "Project not found" });
     }
   });
