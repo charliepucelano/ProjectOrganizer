@@ -198,12 +198,25 @@ export async function expandNote(content: string, title: string, tags: string[] 
     console.log(responseContent);
     console.log("===============================");
     
-    // Process the response to remove any citation references that might still be present
+    // Process the response to clean up any issues
+    
+    // Remove citation references
     responseContent = responseContent.replace(/\[(\d+)\](?!\()/g, '');
     
     // Remove any trailing whitespace after removing citations
     responseContent = responseContent.replace(/\s+\./g, '.');
     responseContent = responseContent.replace(/\s+,/g, ',');
+    
+    // Fix any malformed URLs (sometimes Perplexity returns partial HTML)
+    responseContent = responseContent.replace(/\[(.*?)\]\((.*?)#(.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2#$3)');
+    responseContent = responseContent.replace(/\[(.*?)\]\((.*?)" target="_blank" rel="noopener noreferrer">(.*?)\)/g, '[$1]($2)');
+    
+    // Clean up any other HTML that might have been included
+    responseContent = responseContent.replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)');
+    
+    console.log("=== CLEANED RESPONSE ===");
+    console.log(responseContent);
+    console.log("========================");
     
     return responseContent;
   } catch (error) {

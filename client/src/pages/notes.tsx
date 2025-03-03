@@ -155,10 +155,53 @@ Please refine the original research based on these instructions.
   };
   
   const handleSaveResearch = async () => {
-    // Implementation for saving would be handled by parent component
-    setResearchModalOpen(false);
-    setIsExpanded(true);
-    setResearchAction("save");
+    try {
+      // Update the note with the expanded content
+      const updatedNote = {
+        ...note,
+        content: expandedContent
+      };
+      
+      console.log("Updating note with expanded content:", updatedNote);
+      
+      // Call the API to update the note
+      const response = await fetch(`/api/notes/${note.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updatedNote),
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update note with research");
+      }
+      
+      // Show success toast
+      toast({
+        title: t("researchSaved") || "Research Saved",
+        description: t("researchSavedDescription") || "Your note has been updated with the research content.",
+      });
+      
+      // Close modal and update state
+      setResearchModalOpen(false);
+      setIsExpanded(true);
+      setResearchAction("save");
+      
+      // Invalidate queries to refresh note list
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: [`/api/projects/${note.projectId}/notes`] });
+      }
+    } catch (error) {
+      console.error("Error saving research:", error);
+      toast({
+        title: t("error") || "Error",
+        description: t("saveResearchError") || "Failed to save research. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const truncatedContent = note.content.length > maxContentLength
