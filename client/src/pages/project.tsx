@@ -79,39 +79,51 @@ export default function ProjectPage() {
   // Mutation to toggle expense payment status
   const toggleExpenseStatusMutation = useMutation({
     mutationFn: async (expense) => {
-      // Toggle the isBudget status (0 = paid, 1 = unpaid)
-      const newStatus = expense.isBudget === 1 ? 0 : 1;
-      
-      // First update the expense
-      await apiRequest(
-        "PATCH",
-        `/api/expenses/${expense.id}`,
-        { 
-          isBudget: newStatus,
-          completedAt: newStatus === 0 ? new Date().toISOString() : null 
-        }
-      );
-      
-      // If expense has associated task and we're marking as paid, also complete the task
-      if (expense.todoId && newStatus === 0) {
-        // Get the associated todo first
-        const response = await apiRequest("GET", `/api/todos/${expense.todoId}`);
-        const todo = await response.json();
+      try {
+        // Toggle the isBudget status (0 = paid, 1 = unpaid)
+        const newStatus = expense.isBudget === 1 ? 0 : 1;
         
-        // Update the task to mark it as completed
-        if (todo) {
-          await apiRequest(
-            "PATCH",
-            `/api/todos/${expense.todoId}`,
-            { 
-              completed: 1,
-              completedAt: new Date().toISOString() 
+        // First update the expense
+        await apiRequest(
+          "PATCH",
+          `/api/expenses/${expense.id}`,
+          { 
+            isBudget: newStatus,
+            completedAt: newStatus === 0 ? new Date().toISOString() : null 
+          }
+        );
+        
+        // If expense has associated task, update the task status accordingly
+        if (expense.todoId) {
+          try {
+            // Get the associated todo first
+            const response = await apiRequest("GET", `/api/todos/${expense.todoId}`);
+            const todo = await response.json();
+            
+            // Update the task status
+            if (todo) {
+              // Mark as completed if expense is paid, mark as incomplete if expense is unpaid
+              await apiRequest(
+                "PATCH",
+                `/api/todos/${expense.todoId}`,
+                { 
+                  completed: newStatus === 0 ? 1 : 0,
+                  completedAt: newStatus === 0 ? new Date().toISOString() : null 
+                }
+              );
+              
+              // Also invalidate todos queries
+              queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
             }
-          );
-          
-          // Also invalidate todos queries
-          queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/todos`] });
+          } catch (todoError) {
+            console.error("Error updating associated task:", todoError);
+          }
         }
+        
+        return true;
+      } catch (error) {
+        console.error("Error toggling expense status:", error);
+        throw error;
       }
     },
     onSuccess: () => {
@@ -711,15 +723,11 @@ export default function ProjectPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Mark Expense as Paid</AlertDialogTitle>
             <AlertDialogDescription>
-              {expenseToToggle?.todoId ? (
-                <p>
-                  This expense is linked to a task. Marking it as paid will also complete the associated task.
-                </p>
-              ) : (
-                <p>
-                  Are you sure you want to mark this expense as paid?
-                </p>
-              )}
+              {expenseToToggle?.todoId ? 
+                "This expense is linked to a task. Marking it as paid will also complete the associated task."
+               : 
+                "Are you sure you want to mark this expense as paid?"
+              }
               <div className="mt-2 p-3 border rounded">
                 <div className="flex justify-between font-medium">
                   <span>{expenseToToggle?.description}</span>

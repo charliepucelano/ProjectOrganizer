@@ -39,11 +39,17 @@ const createProjectSchema = z.object({
 
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
 
-export default function Projects() {
-  const [location, navigate] = useLocation();
-  const { user } = useAuth();
+// CreateProjectDialog component to avoid state issues
+function CreateProjectDialog({ 
+  open, 
+  onOpenChange, 
+  trigger 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  trigger: React.ReactNode;
+}) {
   const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Form for creating a new project
   const form = useForm<CreateProjectFormData>({
@@ -54,12 +60,6 @@ export default function Projects() {
     }
   });
 
-  // Query to get all user's projects
-  const { data: projects = [], isLoading, error } = useQuery({
-    queryKey: ["/api/projects"],
-    enabled: !!user
-  });
-
   // Mutation to create a new project
   const createMutation = useMutation({
     mutationFn: async (data: CreateProjectFormData) => {
@@ -67,7 +67,7 @@ export default function Projects() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setIsDialogOpen(false);
+      onOpenChange(false);
       form.reset();
       toast({
         title: "Success",
@@ -88,6 +88,72 @@ export default function Projects() {
     createMutation.mutate(data);
   };
 
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        {trigger}
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create new project</DialogTitle>
+          <DialogDescription>
+            Add a new project to manage tasks and track expenses.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="My New Project" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Describe your project..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end pt-4">
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? "Creating..." : "Create Project"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function Projects() {
+  const [location, navigate] = useLocation();
+  const { user } = useAuth();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Query to get all user's projects
+  const { data: projects = [], isLoading, error } = useQuery({
+    queryKey: ["/api/projects"],
+    enabled: !!user
+  });
+
   const handleSelectProject = (projectId: number) => {
     navigate(`/project/${projectId}`);
   };
@@ -102,60 +168,16 @@ export default function Projects() {
         <p className="text-muted-foreground mb-6 max-w-md">
           Get started by creating your first project to manage tasks and track expenses.
         </p>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+        <CreateProjectDialog 
+          open={isDialogOpen} 
+          onOpenChange={setIsDialogOpen} 
+          trigger={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
               Create your first project
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create new project</DialogTitle>
-              <DialogDescription>
-                Add a new project to manage tasks and track expenses.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="My New Project" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Describe your project..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end pt-4">
-                  <Button 
-                    type="submit" 
-                    disabled={createMutation.isPending}
-                  >
-                    {createMutation.isPending ? "Creating..." : "Create Project"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
     );
   }
@@ -167,62 +189,18 @@ export default function Projects() {
           <h1 className="text-3xl font-bold">Projects</h1>
           <p className="text-muted-foreground">Manage your move-in projects</p>
         </div>
-          {projects.length > 0 && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create new project</DialogTitle>
-                  <DialogDescription>
-                    Add a new project to manage tasks and track expenses.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="My New Project" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (optional)</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Describe your project..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end pt-4">
-                      <Button 
-                        type="submit" 
-                        disabled={createMutation.isPending}
-                      >
-                        {createMutation.isPending ? "Creating..." : "Create Project"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
+        {projects.length > 0 && (
+          <CreateProjectDialog 
+            open={isDialogOpen} 
+            onOpenChange={setIsDialogOpen} 
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+              </Button>
+            }
+          />
+        )}
         </div>
 
         {isLoading ? (
