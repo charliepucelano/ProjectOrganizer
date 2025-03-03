@@ -83,7 +83,7 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
             category: values.category || "Unassigned",
             date: values.dueDate || new Date().toISOString(),
             todoId: todoData.id,
-            isBudget: 0, // Set to 0 to make it an actual expense, not just a budget item
+            isBudget: 1, // Set to 1 to mark it as a budget item until the task is completed
             completedAt: null,
             projectId: projectId || null
           });
@@ -304,7 +304,7 @@ export default function TodoForm({ todo, onCancel, projectId, onSuccess }: TodoF
           render={({ field }) => (
             <FormItem>
               <div className="flex items-center gap-2">
-                <FormLabel>Create Expense</FormLabel>
+                <FormLabel>Add to Budget</FormLabel>
                 <FormControl>
                   <Switch
                     checked={field.value === 1}
